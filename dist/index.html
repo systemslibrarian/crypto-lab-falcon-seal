@@ -1,6 +1,12 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+      (function () {
+        const saved = localStorage.getItem('theme');
+        document.documentElement.setAttribute('data-theme', saved ?? 'dark');
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
@@ -8,8 +14,8 @@
       content="Interactive Falcon signature demo: NTRU lattices, keygen, signing, verification, and comparison with ML-DSA and SLH-DSA."
     />
     <title>Falcon Seal | crypto-lab</title>
-    <script type="module" crossorigin src="/crypto-lab-falcon-seal/assets/index-4JJbLRPh.js"></script>
-    <link rel="stylesheet" crossorigin href="/crypto-lab-falcon-seal/assets/index-BwjFBm0s.css">
+    <script type="module" crossorigin src="/crypto-lab-falcon-seal/assets/index-5CqJsBMf.js"></script>
+    <link rel="stylesheet" crossorigin href="/crypto-lab-falcon-seal/assets/index-DPNkZEY-.css">
   </head>
   <body>
     <a class="skip-link" href="#app" aria-label="Skip to main content">Skip to main content</a>

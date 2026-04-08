@@ -4,66 +4,37 @@ Live demo: https://systemslibrarian.github.io/crypto-lab-falcon-seal/
 
 Falcon-512 · Falcon-1024 · NTRU Lattice · Fast Fourier Sampling
 
-## Overview
+## 1. What It Is
 
-crypto-lab-falcon-seal is a browser-based interactive demonstration of Falcon, the compact lattice-based digital signature scheme over NTRU lattices. It walks through NTRU structure, key generation ideas, signing and verification flow, and tradeoffs against ML-DSA and SLH-DSA.
+crypto-lab-falcon-seal is a browser-based teaching demo for Falcon-512 and Falcon-1024, a post-quantum asymmetric digital signature family built on the NTRU Lattice and Fast Fourier Sampling. It walks through key generation, signing, verification, and comparison with ML-DSA and SLH-DSA. The problem it solves is authenticity and tamper detection: a signer proves authorship of a message, and a verifier can detect changes later. The repository is explicit about scope by labeling the signing path **Illustrative - not production Falcon**.
 
-Important disclosure: this project uses an educational simulation layer for signing internals and is clearly labeled **Illustrative - not production Falcon**.
+## 2. When to Use It
 
-## What You Can Explore
+- **Bandwidth-constrained certificate chains and handshakes** — Falcon's published signature sizes are much smaller than ML-DSA and SLH-DSA, so it fits when transmitted bytes are a hard limit.
+- **IoT firmware signing and secure update delivery** — compact signatures reduce overhead on constrained devices, radios, and boot chains.
+- **Signature-heavy systems that can afford implementation care** — Falcon is a strong fit when signature size matters most and you can depend on a constant-time, audited implementation.
+- **Not for custom classroom code in production** — this repository intentionally uses educational approximations, so it is for learning and comparison rather than live deployment.
 
-- NTRU lattice intuition in Z[x]/(x^n + 1)
-- Falcon-512 style key generation concepts
-- Sign/verify workflow with tamper detection
-- Why Falcon signatures are much smaller than ML-DSA and SLH-DSA
-- Practical algorithm selection guidance for constrained environments
+## 3. Live Demo
 
-## Primitives Used
+Try the demo at https://systemslibrarian.github.io/crypto-lab-falcon-seal/. In the browser you can generate a Falcon-512 keypair, sign a message, verify the signature, and run a tamper test to watch verification fail on modified input. The interactive controls are the message textarea plus `Generate Falcon-512 keypair`, `Sign`, `Verify`, and `Tamper test`, alongside the NTRU lattice visualization and comparison tables.
 
-- Falcon parameter sets (size references): Falcon-512, Falcon-1024
-- NTRU lattice arithmetic (educational ring operations)
-- WebCrypto SHA-256 (`crypto.subtle.digest`)
-- Comparative data for ML-DSA and SLH-DSA published parameter sizes
+## 4. What Can Go Wrong
 
-## Running Locally
+- **Non-constant-time Gaussian sampling** — Falcon's sampler must be constant-time because timing leakage can expose information about the private basis.
+- **Weak randomness for the nonce or sampler** — predictable randomness makes sampled values easier to analyze and undermines signature security.
+- **Incorrect NTRU / FFT / rejection logic** — Falcon depends on precise lattice arithmetic and norm checks, so implementation mistakes can produce invalid or non-interoperable signatures.
+- **Parameter-set or encoding mismatches** — mixing Falcon-512 and Falcon-1024 expectations or using nonstandard encodings will break verification across systems.
+- **Treating the illustrative flow as production security** — this demo states that it is not the full reference implementation, so using it in a real protocol would create false confidence.
 
-```bash
-npm install
-npm run dev
-```
+## 5. Real-World Usage
 
-Build for production:
+Well-known production deployment is still limited, but these standards and interoperability stacks already use the Falcon family today:
 
-```bash
-npm run build
-```
-
-Deploy to GitHub Pages:
-
-```bash
-npm run deploy
-```
-
-## Security Notes
-
-- Falcon's Gaussian sampler requires constant-time implementation to avoid timing side-channels.
-- Do not use custom Falcon implementations in production systems.
-- Use vetted, maintained cryptographic libraries and reference implementations only.
-- This demo intentionally labels its simulation components and does not claim production security.
-
-## Accessibility
-
-The demo targets WCAG 2.1 AA with:
-
-- Keyboard navigation across all controls
-- Descriptive ARIA labels and live regions for status/errors
-- Visible focus indicators in light and dark themes
-- Reduced-motion support via `prefers-reduced-motion`
-- Mobile-first responsive layout and scroll-safe output panes
-
-## Why This Matters
-
-Post-quantum migration is now an engineering reality. Signature size directly impacts TLS certificate chains, firmware updates, and constrained IoT links. Falcon's compact signatures can substantially reduce bandwidth pressure in those deployments.
+- **FN-DSA / NIST FIPS 206** — NIST's federal post-quantum signature track standardizes the Falcon-derived family for digital signatures.
+- **Open Quantum Safe (`liboqs`, `OQS-OpenSSL`, and `oqs-provider`)** — these widely used migration projects expose Falcon for experimental TLS handshakes, X.509 chains, and interoperability testing.
+- **PQClean** — the project maintains portable Falcon implementations that downstream researchers and engineers use for validation and integration work.
+- **SUPERCOP / eBATS benchmarking** — Falcon is measured in the same benchmarking ecosystem used to compare real signature implementations across platforms.
 
 ## Related Demos
 
@@ -78,4 +49,4 @@ References:
 - Ducas, Prest (2016), Fast Fourier sampling over q-ary lattices
 - NIST FIPS 206 and the NIST PQC signature standards context (including ML-DSA and SLH-DSA publications)
 
-So whether you eat or drink or whatever you do, do it all for the glory of God. - 1 Corinthians 10:31
+> *"So whether you eat or drink or whatever you do, do it all for the glory of God." — 1 Corinthians 10:31*

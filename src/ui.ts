@@ -13,14 +13,12 @@ type UIState = {
   keyPair: FalconKeyPair | null;
   signature: FalconSignature | null;
   signedMessage: string;
-  theme: 'light' | 'dark';
 };
 
 const state: UIState = {
   keyPair: null,
   signature: null,
-  signedMessage: '',
-  theme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
+  signedMessage: ''
 };
 
 function bytesBar(value: number, max: number): string {
@@ -92,9 +90,19 @@ function renderComparisonBars(): string {
 }
 
 export function renderApp(root: HTMLElement): void {
+  const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+
   root.innerHTML = `
     <div class="page" aria-label="Falcon Seal page wrapper">
       <header class="hero" aria-label="Header">
+        <button
+          id="theme-toggle"
+          class="theme-toggle"
+          type="button"
+          style="position: absolute; top: 0; right: 0"
+          aria-label="${theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}"
+          aria-pressed="${theme === 'dark' ? 'true' : 'false'}"
+        >${theme === 'dark' ? '🌙' : '☀️'}</button>
         <p class="chip category">Post-Quantum Signatures</p>
         <h1>Falcon Seal</h1>
         <p class="subtitle">
@@ -107,7 +115,6 @@ export function renderApp(root: HTMLElement): void {
           <span class="chip">Fast Fourier Sampling</span>
         </div>
         <div class="hero-actions" aria-label="Header actions">
-          <button id="theme-toggle" class="btn" type="button" aria-label="Toggle dark or light mode" aria-pressed="${state.theme === 'dark'}">Toggle theme</button>
           <a class="badge" href="https://github.com/systemslibrarian/crypto-lab-falcon-seal" target="_blank" rel="noreferrer" aria-label="Open GitHub repository">GitHub</a>
         </div>
       </header>
@@ -314,18 +321,11 @@ function setStatus(id: string, message: string, tone: 'ok' | 'warn' | 'bad' = 'o
 }
 
 function bindEvents(root: HTMLElement): void {
-  const themeToggle = root.querySelector<HTMLButtonElement>('#theme-toggle');
   const keygenBtn = root.querySelector<HTMLButtonElement>('#keygen-btn');
   const signForm = root.querySelector<HTMLFormElement>('#sign-form');
   const verifyBtn = root.querySelector<HTMLButtonElement>('#verify-btn');
   const tamperBtn = root.querySelector<HTMLButtonElement>('#tamper-btn');
   const msgInput = root.querySelector<HTMLTextAreaElement>('#message-input');
-
-  themeToggle?.addEventListener('click', () => {
-    state.theme = state.theme === 'light' ? 'dark' : 'light';
-    document.documentElement.dataset.theme = state.theme;
-    themeToggle.setAttribute('aria-pressed', state.theme === 'dark' ? 'true' : 'false');
-  });
 
   keygenBtn?.addEventListener('click', async () => {
     keygenBtn.disabled = true;
