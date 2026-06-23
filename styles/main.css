@@ -825,3 +825,8 @@ h3 {
   background: color-mix(in srgb, var(--danger) 12%, transparent);
   border: 1px solid var(--danger);
 }
+
+
+/* ═══ Accessibility: WCAG AA contrast overrides (auto-added) ═══ */
+[data-theme="dark"] .skip-link { background-color: #2c8268; } /* was #4ce1b4 on #ffffff = 1.65:1 → 4.67:1 */
+[data-theme="dark"] .btn { background-color: #2c8268; } /* was #4ce1b4 on #ffffff = 1.65:1 → 4.67:1 */
