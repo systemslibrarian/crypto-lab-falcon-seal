@@ -643,6 +643,14 @@ export function renderApp(root: HTMLElement): void {
       </section>
 
       <footer class="footer" aria-label="Footer quote">
+        <div class="links" aria-label="Related demos">
+          Related demos:
+          <a class="badge" href="https://systemslibrarian.github.io/crypto-lab-dilithium-seal/" target="_blank" rel="noreferrer">crypto-lab-dilithium-seal</a>
+          <a class="badge" href="https://systemslibrarian.github.io/crypto-lab-sphincs-ledger/" target="_blank" rel="noreferrer">crypto-lab-sphincs-ledger</a>
+          <a class="badge" href="https://systemslibrarian.github.io/crypto-lab-hawk/" target="_blank" rel="noreferrer">crypto-lab-hawk</a>
+          <a class="badge" href="https://systemslibrarian.github.io/crypto-lab-dilithium-reject/" target="_blank" rel="noreferrer">crypto-lab-dilithium-reject</a>
+          <a class="badge" href="https://systemslibrarian.github.io/crypto-lab-multivariate/" target="_blank" rel="noreferrer">crypto-lab-multivariate</a>
+        </div>
         So whether you eat or drink or whatever you do, do it all for the glory of God. - 1 Corinthians 10:31
       </footer>
     </div>
