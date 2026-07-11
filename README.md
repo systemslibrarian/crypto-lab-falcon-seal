@@ -2,7 +2,7 @@
 
 ## What It Is
 
-crypto-lab-falcon-seal is a browser-based teaching demo for Falcon-512 and Falcon-1024, a post-quantum asymmetric digital signature family built on the NTRU Lattice and Fast Fourier Sampling. It walks through key generation, signing, verification, and comparison with ML-DSA and SLH-DSA. The problem it solves is authenticity and tamper detection: a signer proves authorship of a message, and a verifier can detect changes later. The repository is explicit about scope by labeling the signing path **Illustrative - not production Falcon**.
+crypto-lab-falcon-seal is a browser-based teaching demo for Falcon-512 and Falcon-1024 (standardized by NIST as **FN-DSA** in draft FIPS 206), a post-quantum asymmetric digital signature family built on the NTRU Lattice and Fast Fourier Sampling. It walks through key generation, signing, verification, and comparison with ML-DSA and SLH-DSA. The problem it solves is authenticity and tamper detection: a signer proves authorship of a message, and a verifier can detect changes later. The repository is explicit about scope by labeling the signing path **Illustrative - not production Falcon** — and then backs that up with a final panel that runs the **real reference Falcon-1024, compiled to WebAssembly**, so learners can compare the teaching flow against production output side by side.
 
 ## When to Use It
 
@@ -15,7 +15,14 @@ crypto-lab-falcon-seal is a browser-based teaching demo for Falcon-512 and Falco
 
 **[systemslibrarian.github.io/crypto-lab-falcon-seal](https://systemslibrarian.github.io/crypto-lab-falcon-seal/)**
 
-In the browser you can generate a Falcon-512 keypair, sign a message, verify the signature, and run a tamper test to watch verification fail on modified input. The interactive controls are the message textarea plus `Generate Falcon-512 keypair`, `Sign`, `Verify`, and `Tamper test`, alongside the NTRU lattice visualization and comparison tables.
+In the browser you can generate a Falcon-512 keypair, sign a message, verify the signature, and run a tamper test to watch verification fail on modified input — or press **▶ Walk me through it** for a guided tour that drives every panel in signing order. Beyond the core flow:
+
+- **Babai lattice playground** — click to place a target on a 2D lattice, then decode it with the private short basis vs the public long basis (same lattice!) and watch nearest-plane rounding succeed or miss. This is the trapdoor, interactively.
+- **Forgery playground** — a random forger satisfies the hash equation but fails the norm check by an order of magnitude; flipping one coefficient of a real signature breaks the digest check instead. A third button, **Forge like a pro**, deliberately breaks the toy scheme itself (short Gaussian s + honest digest) to teach why real Falcon's verification equation s₁ + s₂·h = c — not a stored digest — is what actually requires the trapdoor.
+- **Timing-attack lab** — toggle a constant-time vs leaky Gaussian sampler, chart per-sample timings, then run the attacker's side: a leakage meter that climbs against the leaky sampler and flatlines against the constant-time one (the Espitau et al. 2017 attack shape).
+- **Paste-to-verify** — signature exports embed the message, full vector s, and public key; trade JSON with a classmate and verify (or tamper with) it on the other end.
+- **Real Falcon-1024 in WebAssembly** — real keygen, signing, verification, byte counts, and timings from the reference implementation, run on your machine.
+- **Comprehension quizzes** with a persistent score and review links.
 
 ## What Can Go Wrong
 
@@ -41,6 +48,18 @@ git clone https://github.com/systemslibrarian/crypto-lab-falcon-seal
 cd crypto-lab-falcon-seal
 npm install
 npm run dev
+```
+
+Run the unit + integration suite (NTT round-trip against schoolbook multiplication, sign/verify/tamper/forgery properties, Babai miss-rate comparison, timing-attack convergence, and a jsdom walk of the whole UI):
+
+```bash
+npm test
+```
+
+Run the end-to-end suite in real Chromium (drives every panel including the WebAssembly Falcon-1024 run, and screenshots both themes into `test-results/`):
+
+```bash
+npm run build && npm run test:e2e
 ```
 
 ## Related Demos
