@@ -1054,5 +1054,5 @@ h3 {
 }
 
 /* ═══ Accessibility: WCAG AA contrast overrides (auto-added) ═══ */
-[data-theme="dark"] .skip-link { background-color: #2c8268; } /* was #4ce1b4 on #ffffff = 1.65:1 → 4.67:1 */
-[data-theme="dark"] .btn { background-color: #2c8268; } /* was #4ce1b4 on #ffffff = 1.65:1 → 4.67:1 */
+[data-theme="dark"] .skip-link { background-color: #23705a; } /* #fff text: was #4ce1b4 (1.65:1); #23705a = 7.67:1 */
+[data-theme="dark"] .btn { background-color: #23705a; } /* --text (#e9fff1) reads on .btn; #2c8268 = 4.45:1 (fails AA), #23705a = 5.67:1 */

@@ -7,12 +7,12 @@ export default defineConfig({
   timeout: 180_000,
   retries: process.env.CI ? 1 : 0,
   use: {
-    baseURL: 'http://localhost:4199/crypto-lab-falcon-seal/',
+    baseURL: 'http://localhost:4210/crypto-lab-falcon-seal/',
     trace: 'retain-on-failure'
   },
   webServer: {
-    command: 'npm run preview -- --port 4199 --strictPort',
-    url: 'http://localhost:4199/crypto-lab-falcon-seal/',
+    command: 'npm run preview -- --port 4210 --strictPort',
+    url: 'http://localhost:4210/crypto-lab-falcon-seal/',
     reuseExistingServer: !process.env.CI
   }
 });
