@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Test + Playwright artifacts
+test-results/
+playwright-report/
+.playwright/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.log
