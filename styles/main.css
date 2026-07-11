@@ -42,10 +42,10 @@ body {
   padding: 0;
   min-width: 320px;
   font-size: 16px;
-  background:
+  background-color: var(--bg);
+  background-image:
     radial-gradient(circle at 10% 20%, rgba(40, 120, 90, 0.2), transparent 45%),
-    radial-gradient(circle at 90% 0%, rgba(178, 70, 0, 0.18), transparent 42%),
-    var(--bg);
+    radial-gradient(circle at 90% 0%, rgba(178, 70, 0, 0.18), transparent 42%);
   color: var(--text);
   font-family: var(--font-main);
   line-height: 1.5;
@@ -59,7 +59,7 @@ body {
   position: absolute;
   left: -9999px;
   top: 8px;
-  background: var(--accent);
+  background-color: var(--accent);
   color: #fff;
   padding: 10px 14px;
   z-index: 10;
@@ -81,7 +81,7 @@ body {
 .panel,
 .why,
 .footer {
-  background: var(--bg-elev);
+  background-color: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 14px;
@@ -137,7 +137,7 @@ h2 {
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 9px 12px;
-  background: rgba(0, 106, 82, 0.08);
+  background-color: rgba(0, 106, 82, 0.08);
   min-height: 44px;
   display: inline-flex;
   align-items: center;
@@ -145,17 +145,17 @@ h2 {
 }
 
 .category {
-  background: rgba(178, 70, 0, 0.1);
+  background-color: rgba(178, 70, 0, 0.1);
 }
 
 .recommended {
-  background: rgba(0, 106, 82, 0.13);
+  background-color: rgba(0, 106, 82, 0.13);
 }
 
 .btn {
   appearance: none;
   border: 1px solid transparent;
-  background: var(--accent);
+  background-color: var(--accent);
   color: #fff;
   border-radius: 10px;
   min-width: 44px;
@@ -166,7 +166,7 @@ h2 {
 }
 
 .btn.alt {
-  background: transparent;
+  background-color: transparent;
   color: var(--text);
   border-color: var(--border);
 }
@@ -183,7 +183,7 @@ h2 {
   padding: 0;
   border-radius: 50%;
   border: 1px solid var(--border);
-  background: var(--bg);
+  background-color: var(--bg);
   color: var(--text);
   box-shadow: var(--shadow);
   cursor: pointer;
@@ -194,7 +194,7 @@ h2 {
 }
 
 .theme-toggle:hover {
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev));
+  background-color: color-mix(in srgb, var(--accent) 12%, var(--bg-elev));
   border-color: var(--accent);
 }
 
@@ -220,7 +220,7 @@ textarea {
   padding: 10px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: var(--bg);
+  background-color: var(--bg);
   color: var(--text);
   min-height: 130px;
   font-family: var(--font-main);
@@ -231,7 +231,7 @@ textarea {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px;
-  background: color-mix(in srgb, var(--text) 4%, transparent);
+  background-color: color-mix(in srgb, var(--text) 4%, transparent);
   overflow-x: auto;
   word-break: break-word;
 }
@@ -491,7 +491,7 @@ h3 {
   gap: 10px;
   padding: 6px 8px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--text) 4%, transparent);
+  background-color: color-mix(in srgb, var(--text) 4%, transparent);
   border-left: 4px solid var(--border);
 }
 
@@ -522,7 +522,7 @@ h3 {
   position: relative;
   height: 12px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--text) 8%, transparent);
+  background-color: color-mix(in srgb, var(--text) 8%, transparent);
   overflow: hidden;
 }
 
@@ -538,7 +538,7 @@ h3 {
   bottom: -3px;
   left: 71.4%; /* 100/140 of the visible scale */
   width: 2px;
-  background: var(--danger);
+  background-color: var(--danger);
 }
 
 .attempt-norm {
@@ -588,13 +588,13 @@ h3 {
   border: 1px solid var(--border);
   border-radius: 6px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--text) 5%, transparent);
+  background-color: color-mix(in srgb, var(--text) 5%, transparent);
 }
 
 .c-cell {
   flex: 1 1 auto;
   min-width: 1px;
-  background: transparent;
+  background-color: transparent;
   border-right: 1px solid color-mix(in srgb, var(--text) 4%, transparent);
 }
 
@@ -603,11 +603,11 @@ h3 {
 }
 
 .c-cell.pos {
-  background: color-mix(in srgb, var(--ok) 80%, transparent);
+  background-color: color-mix(in srgb, var(--ok) 80%, transparent);
 }
 
 .c-cell.neg {
-  background: color-mix(in srgb, var(--accent-2) 80%, transparent);
+  background-color: color-mix(in srgb, var(--accent-2) 80%, transparent);
 }
 
 .c-cell.mixed {
@@ -615,7 +615,7 @@ h3 {
 }
 
 .c-cell.zero {
-  background: transparent;
+  background-color: transparent;
 }
 
 .c-legend {
@@ -636,15 +636,15 @@ h3 {
 }
 
 .swatch.pos {
-  background: var(--ok);
+  background-color: var(--ok);
 }
 
 .swatch.neg {
-  background: var(--accent-2);
+  background-color: var(--accent-2);
 }
 
 .swatch.zero {
-  background: transparent;
+  background-color: transparent;
   border: 1px solid var(--border);
 }
 
@@ -666,13 +666,13 @@ h3 {
 }
 
 .ok-badge {
-  background: color-mix(in srgb, var(--ok) 18%, transparent);
+  background-color: color-mix(in srgb, var(--ok) 18%, transparent);
   border-color: var(--ok);
   color: var(--ok);
 }
 
 .bad-badge {
-  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  background-color: color-mix(in srgb, var(--danger) 18%, transparent);
   border-color: var(--danger);
   color: var(--danger);
 }
@@ -705,12 +705,12 @@ h3 {
   height: 22px;
   border-radius: 999px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--text) 4%, transparent);
+  background-color: color-mix(in srgb, var(--text) 4%, transparent);
   border: 1px solid var(--border);
 }
 
 .vsize-msg {
-  background: var(--accent);
+  background-color: var(--accent);
   min-width: 2px;
 }
 
@@ -744,7 +744,7 @@ h3 {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 8px;
-  background: color-mix(in srgb, var(--text) 3%, transparent);
+  background-color: color-mix(in srgb, var(--text) 3%, transparent);
 }
 
 .histo-col {
@@ -760,7 +760,7 @@ h3 {
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  background-color: color-mix(in srgb, var(--accent) 5%, transparent);
   display: grid;
   gap: 8px;
 }
@@ -779,7 +779,7 @@ h3 {
   text-align: left;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: var(--bg);
+  background-color: var(--bg);
   color: var(--text);
   padding: 10px 12px;
   cursor: pointer;
@@ -793,12 +793,12 @@ h3 {
 }
 
 .quiz-option.quiz-correct {
-  background: color-mix(in srgb, var(--ok) 20%, var(--bg));
+  background-color: color-mix(in srgb, var(--ok) 20%, var(--bg));
   border-color: var(--ok);
 }
 
 .quiz-option.quiz-wrong {
-  background: color-mix(in srgb, var(--danger) 20%, var(--bg));
+  background-color: color-mix(in srgb, var(--danger) 20%, var(--bg));
   border-color: var(--danger);
 }
 
@@ -817,12 +817,12 @@ h3 {
 }
 
 .quiz-feedback.ok {
-  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  background-color: color-mix(in srgb, var(--ok) 12%, transparent);
   border: 1px solid var(--ok);
 }
 
 .quiz-feedback.bad {
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  background-color: color-mix(in srgb, var(--danger) 12%, transparent);
   border: 1px solid var(--danger);
 }
 
@@ -901,7 +901,7 @@ h3 {
   height: 18px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--text) 5%, transparent);
+  background-color: color-mix(in srgb, var(--text) 5%, transparent);
   overflow: hidden;
 }
 
@@ -916,7 +916,7 @@ h3 {
 }
 
 .attack-meter-fill.hit {
-  background: var(--ok);
+  background-color: var(--ok);
 }
 
 .attack-meter-pct {
@@ -932,7 +932,7 @@ h3 {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 4px;
-  background: color-mix(in srgb, var(--text) 3%, transparent);
+  background-color: color-mix(in srgb, var(--text) 3%, transparent);
 }
 
 .attack-spark-col {
@@ -996,7 +996,7 @@ h3 {
   transform: translateX(-50%);
   width: min(94vw, 560px);
   z-index: 2000;
-  background: var(--bg-elev);
+  background-color: var(--bg-elev);
   color: var(--text);
   border: 2px solid var(--accent);
   border-radius: 14px;
