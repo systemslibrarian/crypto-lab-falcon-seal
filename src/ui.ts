@@ -1,7 +1,14 @@
+import { createAttackState, runAttackRound, type AttackState } from './attack';
+import { BAD_BASIS_2D, GOOD_BASIS_2D, babaiRound, closestLatticePoint, distance, type Vec2 } from './babai';
 import { comparisonRowsLevel1, comparisonRowsLevel5, references, type SignatureRow } from './compare';
 import {
   PARAMETER_SETS,
+  flipSignatureCoefficient,
+  forgeRandomSignature,
+  forgeShortSignature,
   generateFalconKeyPair,
+  parseSignatureJson,
+  publicKeyFingerprint,
   signFalconIllustrative,
   signatureToJson,
   summarizeSignature,
@@ -13,15 +20,15 @@ import {
   type VerifyResult
 } from './falcon';
 import {
-  DEFAULT_BASIS_2D,
   buildLatticePoints,
-  projectShortBasis,
   projectSignatureVector,
   simulateSamplerTimings,
-  type Basis2D,
   type SamplerMode,
   type TimingSample
 } from './ntru';
+import { loadQuizState, resetQuizState, saveQuizAnswer } from './quiz-state';
+import { runRealFalcon } from './real-falcon';
+import { startTour } from './tour';
 
 type UIState = {
   parameterSetName: FalconParameterSetName;
@@ -31,7 +38,36 @@ type UIState = {
   signedMessage: string;
   message: string;
   samplerMode: SamplerMode;
+  latticeBasisMode: 'private' | 'public';
+  latticeTarget: Vec2 | null;
+  samplerHasRun: boolean;
+  attackState: AttackState | null;
+  attackRunning: boolean;
 };
+
+const DEFAULT_MESSAGE = 'Falcon keeps signatures compact for bandwidth-constrained links.';
+
+// Share links carry the message in the hash (#m=<base64url>) so a teacher can
+// hand students a pre-loaded exercise. Read once at startup; a bad hash just
+// falls back to the default.
+function initialMessage(): string {
+  try {
+    const m = new URLSearchParams(window.location.hash.slice(1)).get('m');
+    if (!m) return DEFAULT_MESSAGE;
+    const bytes = Uint8Array.from(atob(m.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+    const text = new TextDecoder().decode(bytes).slice(0, 2000);
+    return text || DEFAULT_MESSAGE;
+  } catch {
+    return DEFAULT_MESSAGE;
+  }
+}
+
+function encodeShareMessage(message: string): string {
+  const bytes = new TextEncoder().encode(message);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
 const state: UIState = {
   parameterSetName: 'Falcon-512',
@@ -39,8 +75,13 @@ const state: UIState = {
   signResult: null,
   verifyResult: null,
   signedMessage: '',
-  message: 'Falcon keeps signatures compact for bandwidth-constrained links.',
-  samplerMode: 'constant-time'
+  message: initialMessage(),
+  samplerMode: 'constant-time',
+  latticeBasisMode: 'private',
+  latticeTarget: null,
+  samplerHasRun: false,
+  attackState: null,
+  attackRunning: false
 };
 
 function currentSet(): FalconParameterSet {
@@ -81,15 +122,9 @@ function escapeHtml(s: string): string {
 }
 
 function latticeSvg(): string {
-  const keyPair = state.keyPair;
-  const basis: Basis2D = keyPair ? projectShortBasis(keyPair.privateKey.f, keyPair.privateKey.g) : DEFAULT_BASIS_2D;
-  const safeBasis: Basis2D = {
-    ax: Math.max(-120, Math.min(120, basis.ax || DEFAULT_BASIS_2D.ax)),
-    ay: Math.max(-120, Math.min(120, basis.ay || DEFAULT_BASIS_2D.ay)),
-    bx: Math.max(-120, Math.min(120, basis.bx || DEFAULT_BASIS_2D.bx)),
-    by: Math.max(-120, Math.min(120, basis.by || DEFAULT_BASIS_2D.by))
-  };
-  const points = buildLatticePoints(safeBasis);
+  const isPrivate = state.latticeBasisMode === 'private';
+  const basis = isPrivate ? GOOD_BASIS_2D : BAD_BASIS_2D;
+  const points = buildLatticePoints(GOOD_BASIS_2D); // same lattice under either basis
   const circles = points
     .map((p) => {
       const cx = 150 + p.x;
@@ -99,8 +134,9 @@ function latticeSvg(): string {
     })
     .join('');
 
-  const basisLineA = `<line x1="150" y1="150" x2="${150 + safeBasis.ax}" y2="${150 - safeBasis.ay}" class="basis-line${keyPair ? ' private' : ''}" />`;
-  const basisLineB = `<line x1="150" y1="150" x2="${150 + safeBasis.bx}" y2="${150 - safeBasis.by}" class="basis-line${keyPair ? ' private' : ''}" />`;
+  const lineClass = isPrivate ? 'basis-line private' : 'basis-line public';
+  const basisLineA = `<line x1="150" y1="150" x2="${150 + basis.ax}" y2="${150 - basis.ay}" class="${lineClass}" />`;
+  const basisLineB = `<line x1="150" y1="150" x2="${150 + basis.bx}" y2="${150 - basis.by}" class="${lineClass}" />`;
 
   let sigOverlay = '';
   if (state.signResult) {
@@ -114,34 +150,74 @@ function latticeSvg(): string {
     `;
   }
 
-  const targetX = 188;
-  const targetY = 74;
-  const targetMarker = keyPair
-    ? ''
-    : `<circle cx="${targetX}" cy="${targetY}" r="7" class="target" /><text x="${targetX + 6}" y="${targetY - 8}" class="svg-label">short-vector target</text>`;
+  let babaiOverlay = '';
+  let verdict = '';
+  if (state.latticeTarget) {
+    const t = state.latticeTarget;
+    const snapped = babaiRound(basis, t).point;
+    const truest = closestLatticePoint(GOOD_BASIS_2D, t);
+    const errDist = distance(snapped, t);
+    const bestDist = distance(truest, t);
+    // 0.5 = tie tolerance: with the near-orthogonal private basis the only
+    // "misses" are sub-pixel ties between equidistant lattice points.
+    const found = Math.abs(errDist - bestDist) < 0.5;
+    const tx = 150 + t.x;
+    const ty = 150 - t.y;
+    const sx = 150 + snapped.x;
+    const sy = 150 - snapped.y;
+    babaiOverlay = `
+      <circle cx="${150 + truest.x}" cy="${150 - truest.y}" r="8" class="true-closest" />
+      <line x1="${tx}" y1="${ty}" x2="${sx}" y2="${sy}" class="babai-error ${found ? 'hit' : 'miss'}" />
+      <circle cx="${sx}" cy="${sy}" r="5" class="babai-snap ${found ? 'hit' : 'miss'}" />
+      <path d="M ${tx - 6} ${ty - 6} L ${tx + 6} ${ty + 6} M ${tx - 6} ${ty + 6} L ${tx + 6} ${ty - 6}" class="target-x" />
+    `;
+    verdict = found
+      ? ` <strong>✅ Babai rounding with the ${isPrivate ? 'private short' : 'public long'} basis found the closest lattice point</strong> (error ${errDist.toFixed(1)}).`
+      : ` <strong>❌ Babai rounding with the ${isPrivate ? 'private short' : 'public long'} basis missed</strong> — it landed ${errDist.toFixed(1)} away, but the true closest point (dashed ring) is only ${bestDist.toFixed(1)} away.`;
+  }
 
-  const caption = keyPair
-    ? state.signResult
-      ? 'Green basis lines: projection of your private short basis (f, g). Orange dot: signature vector s (projected).'
-      : 'Green basis lines: projection of your private short basis (f, g) — the trapdoor. Generate a signature to see where s lands.'
-    : 'Green dots: lattice points. Orange dots: short vectors near the origin. Red dot: shortest-vector target. Lines: a generic short basis.';
+  const caption = state.latticeTarget
+    ? `Both bases generate the <em>same</em> lattice — only their shape differs.${verdict} In Falcon this happens in dimension ${currentSet().params.n * 2}, where no one can brute-force the answer.`
+    : `Click or drag anywhere on the grid to place a target ✕ (arrow keys work too), then switch bases. The ${isPrivate ? 'short, near-orthogonal <strong>private</strong> basis' : 'long, skewed <strong>public</strong> basis'} is drawn from the origin. Signing = finding the lattice point nearest a hash target; the short basis is what makes that easy.`;
 
   return `
     <svg
-      class="lattice"
+      id="lattice-svg"
+      class="lattice interactive"
       viewBox="0 0 300 300"
       role="img"
-      aria-label="Two-dimensional lattice visualization"
+      tabindex="0"
+      aria-label="Interactive two-dimensional lattice: click or drag to place a target, or use the arrow keys to nudge it, and compare Babai rounding under the private and public bases"
     >
       <rect x="0" y="0" width="300" height="300" class="lattice-bg"></rect>
       ${basisLineA}
       ${basisLineB}
       <circle cx="150" cy="150" r="6" class="origin" />
       ${circles}
-      ${targetMarker}
       ${sigOverlay}
+      ${babaiOverlay}
     </svg>
-    <p class="small-note" aria-label="Lattice visualization legend">${caption}</p>
+    <p class="small-note" aria-live="polite" aria-label="Lattice visualization legend">${caption}</p>
+  `;
+}
+
+function latticeControls(): string {
+  return `
+    <fieldset class="sampler-mode" aria-label="Lattice basis selector">
+      <legend>Decode the target with…</legend>
+      <label class="paramset-opt">
+        <input type="radio" name="lattice-basis" value="private" ${state.latticeBasisMode === 'private' ? 'checked' : ''} />
+        <span>Private short basis <small>(the trapdoor — what the signer holds)</small></span>
+      </label>
+      <label class="paramset-opt">
+        <input type="radio" name="lattice-basis" value="public" ${state.latticeBasisMode === 'public' ? 'checked' : ''} />
+        <span>Public long basis <small>(same lattice — what an attacker has)</small></span>
+      </label>
+    </fieldset>
+    <div class="actions" aria-label="Lattice playground actions">
+      <button id="lattice-random-btn" class="btn alt" type="button" aria-label="Place a random target on the lattice">Place random target</button>
+      <button id="lattice-clear-btn" class="btn alt" type="button" aria-label="Clear the lattice target">Clear target</button>
+    </div>
   `;
 }
 
@@ -276,9 +352,7 @@ function renderAttempts(): string {
   `;
 }
 
-function renderVerify(): string {
-  const v = state.verifyResult;
-  if (!v) return '';
+function renderVerifyBlock(v: VerifyResult, note?: string): string {
   const normIcon = v.normCheckOk ? '✅' : '❌';
   const hashIcon = v.recomputeCheckOk ? '✅' : '❌';
   const overall = v.overall
@@ -289,6 +363,46 @@ function renderVerify(): string {
       <div class="verify-row"><span>${normIcon}</span><span><strong>Norm check:</strong> ‖s‖² = ${v.observedSquaredNorm} ≤ ${v.rejectionBound}? ${v.normCheckOk ? 'yes' : 'no'}</span></div>
       <div class="verify-row"><span>${hashIcon}</span><span><strong>Recompute check:</strong> hash(h·s − c) matches stored digest? ${v.recomputeCheckOk ? 'yes' : 'no'}</span></div>
       <div class="verify-row">${overall}</div>
+      ${note ? `<p class="small-note">${note}</p>` : ''}
+    </div>
+  `;
+}
+
+function renderVerify(): string {
+  return state.verifyResult ? renderVerifyBlock(state.verifyResult) : '';
+}
+
+function renderAttack(): string {
+  const attack = state.attackState;
+  if (!attack || attack.rounds.length === 0) {
+    return '<p class="small-note">The attacker sees only timings — never the sampled values. Run the attack against each sampler mode and compare.</p>';
+  }
+  const last = attack.rounds[attack.rounds.length - 1];
+  const pct = Math.round(last.leakFraction * 100);
+  const leaky = attack.mode === 'leaky';
+  const sigma = last.recoveredSigma;
+  const sparkline = attack.rounds
+    .map((r) => {
+      const h = Math.max(2, r.leakFraction * 100);
+      return `<div class="attack-spark-col" style="height:${h.toFixed(1)}%" title="${r.signaturesObserved} signatures: r²=${(r.leakFraction * 100).toFixed(1)}%"></div>`;
+    })
+    .join('');
+  const verdict = attack.done
+    ? leaky
+      ? `<strong>Attack succeeded.</strong> Timing explains ${pct}% of the variance in |sample| (r = ${last.correlation.toFixed(3)}), and the timing strata alone recover the sampler's σ ≈ ${sigma?.toFixed(2) ?? '—'} (true σ = 1.20). Espitau et al. turned exactly this signal into full BLISS key recovery with ~40k signatures.`
+      : `<strong>Attack failed.</strong> After ${last.signaturesObserved} signatures, correlation r = ${last.correlation.toFixed(3)} — statistically nothing${sigma === null ? ', and the timings form a single stratum, so no magnitudes can be read out' : ''}. Constant-time sampling starves the attacker of signal, which is why Falcon §3.8 mandates it.`
+    : `Observing… ${last.signaturesObserved} signatures (${last.samplesObserved.toLocaleString()} sampler timings) so far. Correlation r = ${last.correlation.toFixed(3)}.`;
+  return `
+    <div class="attack-block">
+      <div class="attack-meter-row">
+        <span class="attack-meter-label">Secret-distribution leakage (r²)</span>
+        <div class="attack-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Fraction of sample magnitude variance recovered from timing alone">
+          <div class="attack-meter-fill ${leaky ? 'miss' : 'hit'}" style="width:${pct}%"></div>
+        </div>
+        <span class="attack-meter-pct mono">${pct}%</span>
+      </div>
+      <div class="attack-spark" aria-label="Leakage versus number of observed signatures">${sparkline}</div>
+      <p class="small-note">${verdict}</p>
     </div>
   `;
 }
@@ -434,8 +548,13 @@ export function renderApp(root: HTMLElement): void {
           </label>
         </fieldset>
         <div class="hero-actions" aria-label="Header actions">
+          <button id="tour-btn" class="btn" type="button" aria-label="Start the guided tour">▶ Walk me through it</button>
           <a class="badge" href="https://github.com/systemslibrarian/crypto-lab-falcon-seal" target="_blank" rel="noreferrer" aria-label="Open GitHub repository">GitHub</a>
+          <span id="quiz-score" class="chip" aria-live="polite" aria-label="Quiz score"></span>
         </div>
+        <p class="small-note">
+          Naming note: NIST's draft <strong>FIPS 206</strong> standardizes this design as <strong>FN-DSA</strong> (FFT-over-NTRU-lattice Digital Signature Algorithm) — the same dual naming ML-DSA/Dilithium and SLH-DSA/SPHINCS+ went through.
+        </p>
       </header>
 
       <section class="why" aria-label="Why this matters section">
@@ -445,7 +564,7 @@ export function renderApp(root: HTMLElement): void {
         </p>
       </section>
 
-      <section class="panel" aria-labelledby="p1-title">
+      <section class="panel" id="panel-1" aria-labelledby="p1-title">
         <h2 id="p1-title">Panel 1 — NTRU Lattice Primer</h2>
         <p>
           Falcon works in polynomial rings of the form <strong>Z[x]/(x<sup>n</sup>&nbsp;+&nbsp;1)</strong>, where n = 512 or 1024. The underlying hard problem is finding short vectors in high-dimensional lattices (SVP/CVP).
@@ -459,13 +578,20 @@ export function renderApp(root: HTMLElement): void {
         <p>
           Standard parameter sets: <strong>Falcon-512</strong> (NIST Level 1, n=512, sig ≈ 666 B) and <strong>Falcon-1024</strong> (NIST Level 5, n=1024, sig ≈ 1280 B). The modulus q = 12289 in both cases.
         </p>
+        <h3>Try the trapdoor yourself</h3>
+        <p>
+          Signing is a <em>closest-vector</em> task: hash the message to a target point, then find the lattice point nearest it. Place a target below and decode it with each basis. The private basis (short, near-orthogonal) rounds to the right answer; the public basis (long, skewed — <em>the same lattice</em>) misses for about half of all targets. That asymmetry is the entire trapdoor.
+        </p>
+        <div id="lattice-controls" aria-label="Lattice playground controls">
+          ${latticeControls()}
+        </div>
         <div id="lattice-viz" class="viz" aria-label="Lattice visualization">
           ${latticeSvg()}
         </div>
         ${renderQuiz(quizzes.q1)}
       </section>
 
-      <section class="panel" aria-labelledby="p2-title">
+      <section class="panel" id="panel-2" aria-labelledby="p2-title">
         <h2 id="p2-title">Panel 2 — Falcon Key Generation</h2>
         <p class="warning" role="note" aria-label="Disclosure note">
           <strong>Illustrative — not production Falcon.</strong> This demo computes a <em>real</em> NTRU public key <code>h = g · f⁻¹ mod (q, x<sup>n</sup>+1)</code> via negacyclic NTT, but the signing flow uses an educational Gaussian sampler in place of Falcon's constant-time Fast Fourier Sampling.
@@ -497,7 +623,7 @@ export function renderApp(root: HTMLElement): void {
         ${renderQuiz(quizzes.q2)}
       </section>
 
-      <section class="panel" aria-labelledby="p3-title">
+      <section class="panel" id="panel-3" aria-labelledby="p3-title">
         <h2 id="p3-title">Panel 3 — Sign and Verify</h2>
         <form id="sign-form" class="form" aria-label="Sign and verify form">
           <label for="message-input">Message</label>
@@ -507,6 +633,7 @@ export function renderApp(root: HTMLElement): void {
             <button id="verify-btn" class="btn alt" type="button" aria-label="Verify current signature">Verify</button>
             <button id="tamper-btn" class="btn alt" type="button" aria-label="Tamper message and verify failure">Tamper test</button>
             <button id="copy-btn" class="btn alt" type="button" aria-label="Copy signature as JSON">Copy as JSON</button>
+            <button id="share-btn" class="btn alt" type="button" aria-label="Copy a shareable link that preloads this message">Copy share link</button>
             <span class="status-chip recommended" aria-label="Recommendation status">RECOMMENDED (size-constrained environments)</span>
           </div>
         </form>
@@ -517,13 +644,37 @@ export function renderApp(root: HTMLElement): void {
           <strong>Implementation warning:</strong> the Gaussian sampler <em>must</em> be constant-time in production — see Panel 5 for an interactive demonstration of why.
         </p>
         <div id="sign-info" class="output mono" aria-live="polite" aria-label="Signature details"></div>
-        <div id="attempts-info" class="output" aria-live="polite" aria-label="Rejection sampling attempts"></div>
+        <div id="attempts-info" class="output" aria-label="Rejection sampling attempts"></div>
         <div id="challenge-info" class="output" aria-label="Hash to challenge polynomial"></div>
         <div id="verify-info" class="output" aria-live="assertive" aria-label="Verification result"></div>
+
+        <h3>Forgery playground</h3>
+        <p>
+          In real Falcon, a signature must be a <strong>short</strong> vector that <strong>satisfies the verification equation</strong> s₁ + s₂·h = c — and finding a short solution without the trapdoor is the hard lattice problem. Probe both requirements, and then find this demo's own weak spot:
+        </p>
+        <div class="actions" aria-label="Forgery actions">
+          <button id="forge-btn" class="btn alt" type="button" aria-label="Attempt a forgery with a random signature vector">Try to forge (random s)</button>
+          <button id="flip-btn" class="btn alt" type="button" aria-label="Flip one coefficient of the current signature and re-verify">Flip one coefficient of s</button>
+          <button id="forge-pro-btn" class="btn alt" type="button" aria-label="Forge with a short Gaussian vector and expose the toy scheme's weakness">Forge like a pro (short s)</button>
+        </div>
+        <div id="forge-info" class="output" aria-live="polite" aria-label="Forgery attempt result"></div>
+
+        <h3>Verify a pasted signature</h3>
+        <details class="paste-details">
+          <summary>Paste a signature JSON from “Copy as JSON” (yours, or someone else’s)</summary>
+          <p class="small-note">
+            The export embeds the message, nonce, full vector s, and the signer's public key h — everything a verifier needs. Trade exports with a classmate, or edit a byte of the JSON in transit and watch verification catch it.
+          </p>
+          <textarea id="paste-input" rows="6" aria-label="Signature JSON to verify" placeholder='{"scheme":"Falcon-512", ...}'></textarea>
+          <div class="actions">
+            <button id="paste-verify-btn" class="btn alt" type="button" aria-label="Verify the pasted signature JSON">Verify pasted signature</button>
+          </div>
+          <div id="paste-info" class="output" aria-live="polite" aria-label="Pasted signature verification result"></div>
+        </details>
         ${renderQuiz(quizzes.q3)}
       </section>
 
-      <section class="panel" aria-labelledby="p4-title">
+      <section class="panel" id="panel-4" aria-labelledby="p4-title">
         <h2 id="p4-title">Panel 4 — Falcon vs ML-DSA vs SLH-DSA</h2>
         <p class="small-note">
           Size fields use published NIST submission parameter values. Timing columns are indicative reference-software measurements and hardware-dependent.
@@ -586,7 +737,7 @@ export function renderApp(root: HTMLElement): void {
         ${renderQuiz(quizzes.q4)}
       </section>
 
-      <section class="panel" aria-labelledby="p5-title">
+      <section class="panel" id="panel-5" aria-labelledby="p5-title">
         <h2 id="p5-title">Panel 5 — Side-Channels, Use Cases, and Warnings</h2>
 
         <h3>Side-channel timing lab</h3>
@@ -609,6 +760,16 @@ export function renderApp(root: HTMLElement): void {
         </div>
         <div id="timing-viz" class="timing-viz" aria-live="polite" aria-label="Timing histogram">
           ${renderTimingHistogram([])}
+        </div>
+        <h3>Now run the attack</h3>
+        <p>
+          The histogram shows the leak exists. This runs the attacker's side: observe <em>only the timings</em> of many signatures, correlate them against sample magnitude, and read the secret distribution out of the timing strata. Toggle the sampler mode above and run it against both.
+        </p>
+        <div class="actions">
+          <button id="attack-btn" class="btn alt" type="button" aria-label="Simulate a timing attack over 200 observed signatures">Attack: observe 200 signatures</button>
+        </div>
+        <div id="attack-viz" class="timing-viz" aria-live="polite" aria-label="Timing attack progress">
+          ${renderAttack()}
         </div>
         <p class="warning" role="note">
           <strong>Reference:</strong> Espitau, Fouque, Gérard &amp; Rossi (2017), "Side-Channel Attacks on BLISS Lattice-Based Signatures" — practical key recovery via Gaussian-sampler timing. Falcon spec §3.8 mandates constant-time sampling for production implementations.
@@ -633,6 +794,23 @@ export function renderApp(root: HTMLElement): void {
           <a class="badge" href="https://github.com/systemslibrarian/crypto-compare" target="_blank" rel="noreferrer" aria-label="Open crypto-compare signatures category">crypto-compare — Signatures</a>
         </div>
         ${renderQuiz(quizzes.q5)}
+      </section>
+
+      <section class="panel" id="panel-6" aria-labelledby="p6-title">
+        <h2 id="p6-title">Panel 6 — Run Real Falcon (WebAssembly)</h2>
+        <p>
+          Everything above is deliberately illustrative. This panel runs the <strong>reference Falcon-1024 implementation compiled to WebAssembly</strong>
+          (<a href="https://github.com/cyph/pqcrypto.js" target="_blank" rel="noreferrer">falcon-crypto / pqcrypto.js</a>) on your machine:
+          real key generation, real signing of your Panel 3 message, real verification, real byte counts and timings.
+        </p>
+        <div class="actions" aria-label="Real Falcon controls">
+          <button id="real-falcon-btn" class="btn" type="button" aria-label="Run real Falcon-1024 keygen, sign, and verify in WebAssembly">Run real Falcon-1024 on your message</button>
+        </div>
+        <div id="real-falcon-info" class="output" aria-live="polite" aria-label="Real Falcon run results"></div>
+        <p class="small-note">
+          This build exposes Falcon-1024 with the fixed-size <em>padded</em> signature format (1 header byte + 40-byte salt + padded body). The
+          variable-size compressed format from the spec averages ≈1,280 B — both are standard encodings.
+        </p>
       </section>
 
       <section class="panel" aria-labelledby="refs-title">
@@ -670,7 +848,12 @@ function setStatus(id: string, message: string, tone: 'ok' | 'warn' | 'bad' = 'o
 
 function updateLatticeViz(): void {
   const host = document.getElementById('lattice-viz');
-  if (host) host.innerHTML = latticeSvg();
+  if (!host) return;
+  // Re-rendering replaces the SVG node; restore focus so keyboard nudging
+  // (arrow keys) keeps working across updates.
+  const hadFocus = document.activeElement?.id === 'lattice-svg';
+  host.innerHTML = latticeSvg();
+  if (hadFocus) host.querySelector<SVGSVGElement>('#lattice-svg')?.focus();
 }
 
 function updateVisceralSize(): void {
@@ -695,6 +878,73 @@ function updateVerify(): void {
     host.classList.remove('ok', 'warn', 'bad');
     if (state.verifyResult) host.classList.add(state.verifyResult.overall ? 'ok' : 'bad');
   }
+}
+
+function updateAttack(): void {
+  const host = document.getElementById('attack-viz');
+  if (host) host.innerHTML = renderAttack();
+}
+
+function runHistogram(): void {
+  const samples = simulateSamplerTimings(512, state.samplerMode);
+  state.samplerHasRun = true;
+  const host = document.getElementById('timing-viz');
+  if (host) host.innerHTML = renderTimingHistogram(samples);
+}
+
+function applyQuizAnswer(root: ParentNode, quiz: Quiz, chosenIdx: number, save: boolean): void {
+  const container = root.querySelector<HTMLElement>(`.quiz[data-quiz-id="${quiz.id}"]`);
+  if (!container) return;
+  let correct = false;
+  container.querySelectorAll<HTMLButtonElement>('.quiz-option').forEach((b) => {
+    b.disabled = true;
+    if (b.dataset.correct === 'true') b.classList.add('quiz-correct');
+    if (Number(b.dataset.idx) === chosenIdx) {
+      if (b.dataset.correct === 'true') correct = true;
+      else b.classList.add('quiz-wrong');
+    }
+  });
+  const feedback = container.querySelector<HTMLElement>(`[data-quiz-feedback="${quiz.id}"]`);
+  if (feedback) {
+    feedback.innerHTML = `<strong>${correct ? '✅ Correct.' : '❌ Not quite.'}</strong> ${escapeHtml(quiz.explanation)}`;
+    feedback.classList.remove('ok', 'bad');
+    feedback.classList.add(correct ? 'ok' : 'bad');
+  }
+  if (save) saveQuizAnswer(quiz.id, { chosenIdx, correct });
+  updateQuizScore();
+}
+
+function resetQuizDom(root: ParentNode): void {
+  root.querySelectorAll<HTMLElement>('.quiz').forEach((container) => {
+    container.querySelectorAll<HTMLButtonElement>('.quiz-option').forEach((b) => {
+      b.disabled = false;
+      b.classList.remove('quiz-correct', 'quiz-wrong');
+    });
+    const feedback = container.querySelector<HTMLElement>('.quiz-feedback');
+    if (feedback) {
+      feedback.innerHTML = '';
+      feedback.classList.remove('ok', 'bad');
+    }
+  });
+}
+
+function updateQuizScore(): void {
+  const host = document.getElementById('quiz-score');
+  if (!host) return;
+  const stored = loadQuizState();
+  const ids = Object.keys(quizzes);
+  const answered = ids.filter((id) => stored[id]);
+  if (answered.length === 0) {
+    host.innerHTML = `Quiz: 0/${ids.length} answered`;
+    return;
+  }
+  const correct = answered.filter((id) => stored[id].correct).length;
+  const firstWrong = ids.find((id) => stored[id] && !stored[id].correct);
+  const perfect = correct === ids.length;
+  host.innerHTML =
+    `Quiz score: ${correct}/${ids.length}${perfect ? ' 🎉' : ''}` +
+    (firstWrong ? ` · <button type="button" class="quiz-link" data-quiz-review="${firstWrong}">review</button>` : '') +
+    ` · <button type="button" class="quiz-link" data-quiz-reset="true" aria-label="Reset quiz progress">reset</button>`;
 }
 
 function bindEvents(root: HTMLElement): void {
@@ -722,6 +972,16 @@ function bindEvents(root: HTMLElement): void {
   root.querySelectorAll<HTMLInputElement>('input[name="sampler-mode"]').forEach((input) => {
     input.addEventListener('change', () => {
       state.samplerMode = input.value as SamplerMode;
+      state.attackState = null;
+      updateAttack();
+      if (state.samplerHasRun) runHistogram();
+    });
+  });
+
+  root.querySelectorAll<HTMLInputElement>('input[name="lattice-basis"]').forEach((input) => {
+    input.addEventListener('change', () => {
+      state.latticeBasisMode = input.value as 'private' | 'public';
+      updateLatticeViz();
     });
   });
 
@@ -811,6 +1071,28 @@ function bindEvents(root: HTMLElement): void {
     updateVerify();
   });
 
+  const copyText = async (text: string): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+      } finally {
+        document.body.removeChild(ta);
+      }
+    }
+  };
+  const flashLabel = (btn: HTMLButtonElement, done: string, restore: string): void => {
+    btn.textContent = done;
+    setTimeout(() => {
+      btn.textContent = restore;
+    }, 1500);
+  };
+
   copyBtn?.addEventListener('click', async () => {
     if (!state.signResult) {
       setStatus('verify-info', 'Sign a message first, then copy.', 'warn');
@@ -820,55 +1102,367 @@ function bindEvents(root: HTMLElement): void {
       state.signResult.signature,
       state.signedMessage,
       state.signResult.rejectionBound,
-      state.signResult.finalSquaredNorm
+      state.signResult.finalSquaredNorm,
+      state.keyPair?.publicKey
     );
-    try {
-      await navigator.clipboard.writeText(json);
-      copyBtn.textContent = 'Copied ✓';
-      setTimeout(() => {
-        copyBtn.textContent = 'Copy as JSON';
-      }, 1500);
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = json;
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        document.execCommand('copy');
-      } finally {
-        document.body.removeChild(ta);
-      }
-      copyBtn.textContent = 'Copied ✓';
-      setTimeout(() => {
-        copyBtn.textContent = 'Copy as JSON';
-      }, 1500);
-    }
+    await copyText(json);
+    flashLabel(copyBtn, 'Copied ✓', 'Copy as JSON');
+  });
+
+  const shareBtn = root.querySelector<HTMLButtonElement>('#share-btn');
+  shareBtn?.addEventListener('click', async () => {
+    const message = msgInput?.value ?? state.message;
+    const url = `${window.location.origin}${window.location.pathname}#m=${encodeShareMessage(message)}`;
+    await copyText(url);
+    flashLabel(shareBtn, 'Link copied ✓', 'Copy share link');
   });
 
   sampleBtn?.addEventListener('click', () => {
-    const samples = simulateSamplerTimings(512, state.samplerMode);
-    const host = document.getElementById('timing-viz');
-    if (host) host.innerHTML = renderTimingHistogram(samples);
+    runHistogram();
   });
 
+  // Lattice playground: click or drag to place the target, arrow keys to nudge it.
+  const latticeViz = root.querySelector<HTMLElement>('#lattice-viz');
+  const clampTarget = (x: number, y: number) => ({
+    x: Math.max(-140, Math.min(140, Math.round(x))),
+    y: Math.max(-140, Math.min(140, Math.round(y)))
+  });
+  const pointToLattice = (event: PointerEvent | MouseEvent) => {
+    const svg = latticeViz?.querySelector('svg.lattice');
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+    const x = ((event.clientX - rect.left) / rect.width) * 300 - 150;
+    const y = 150 - ((event.clientY - rect.top) / rect.height) * 300;
+    return clampTarget(x, y);
+  };
+  let latticeDragging = false;
+  latticeViz?.addEventListener('pointerdown', (event) => {
+    if (!(event.target as Element).closest('svg.lattice')) return;
+    const p = pointToLattice(event);
+    if (!p) return;
+    latticeDragging = true;
+    state.latticeTarget = p;
+    updateLatticeViz();
+  });
+  latticeViz?.addEventListener('pointermove', (event) => {
+    if (!latticeDragging) return;
+    const p = pointToLattice(event);
+    if (!p) return;
+    state.latticeTarget = p;
+    updateLatticeViz();
+  });
+  for (const type of ['pointerup', 'pointercancel', 'pointerleave'] as const) {
+    latticeViz?.addEventListener(type, () => {
+      latticeDragging = false;
+    });
+  }
+  latticeViz?.addEventListener('keydown', (event) => {
+    const deltas: Record<string, [number, number]> = {
+      ArrowLeft: [-4, 0],
+      ArrowRight: [4, 0],
+      ArrowUp: [0, 4],
+      ArrowDown: [0, -4]
+    };
+    const delta = deltas[event.key];
+    if (!delta) return;
+    event.preventDefault();
+    const current = state.latticeTarget ?? { x: 0, y: 0 };
+    state.latticeTarget = clampTarget(current.x + delta[0], current.y + delta[1]);
+    updateLatticeViz();
+  });
+
+  root.querySelector<HTMLButtonElement>('#lattice-random-btn')?.addEventListener('click', () => {
+    const rand = new Int8Array(2);
+    crypto.getRandomValues(rand);
+    state.latticeTarget = {
+      x: Math.round((rand[0] / 128) * 110),
+      y: Math.round((rand[1] / 128) * 110)
+    };
+    updateLatticeViz();
+  });
+
+  root.querySelector<HTMLButtonElement>('#lattice-clear-btn')?.addEventListener('click', () => {
+    state.latticeTarget = null;
+    updateLatticeViz();
+  });
+
+  // Timing attack simulation.
+  const attackBtn = root.querySelector<HTMLButtonElement>('#attack-btn');
+  attackBtn?.addEventListener('click', () => {
+    if (state.attackRunning) return;
+    state.attackRunning = true;
+    state.attackState = createAttackState(state.samplerMode);
+    attackBtn.disabled = true;
+    const totalRounds = 20;
+    const step = () => {
+      const attack = state.attackState;
+      if (!attack) {
+        state.attackRunning = false;
+        attackBtn.disabled = false;
+        return;
+      }
+      runAttackRound(attack, 10, 128);
+      if (attack.rounds.length >= totalRounds) {
+        attack.done = true;
+        state.attackRunning = false;
+        attackBtn.disabled = false;
+      }
+      updateAttack();
+      if (!attack.done) setTimeout(step, 90);
+    };
+    step();
+  });
+
+  // Forgery playground.
+  const forgeBtn = root.querySelector<HTMLButtonElement>('#forge-btn');
+  forgeBtn?.addEventListener('click', async () => {
+    if (!state.keyPair) {
+      setStatus('forge-info', 'Generate a keypair first — the forger needs a public key to attack.', 'warn');
+      return;
+    }
+    const message = msgInput?.value ?? state.message;
+    forgeBtn.disabled = true;
+    try {
+      const forged = await forgeRandomSignature(message, state.keyPair.publicKey);
+      const v = await verifyFalconIllustrative(message, forged.signature, state.keyPair.publicKey);
+      const host = document.getElementById('forge-info');
+      if (host) {
+        host.classList.remove('ok', 'warn', 'bad');
+        host.classList.add(v.overall ? 'ok' : 'bad');
+        const factor = (v.observedSquaredNorm / v.rejectionBound).toFixed(1);
+        host.innerHTML = renderVerifyBlock(
+          v,
+          `The forger picked a random s and computed the digest of h·s − c honestly — so the recompute check passes. But ‖s‖² = ${v.observedSquaredNorm} is ${factor}× over the bound ${v.rejectionBound}: rejected. Now try “Forge like a pro” to see what a smarter attacker does with this <em>toy</em> scheme — and why real Falcon shrugs it off.`
+        );
+      }
+    } finally {
+      forgeBtn.disabled = false;
+    }
+  });
+
+  const forgeProBtn = root.querySelector<HTMLButtonElement>('#forge-pro-btn');
+  forgeProBtn?.addEventListener('click', async () => {
+    if (!state.keyPair) {
+      setStatus('forge-info', 'Generate a keypair first — the forger needs a public key to attack.', 'warn');
+      return;
+    }
+    const message = msgInput?.value ?? state.message;
+    forgeProBtn.disabled = true;
+    try {
+      const forged = await forgeShortSignature(message, state.keyPair.publicKey);
+      const v = await verifyFalconIllustrative(message, forged.signature, state.keyPair.publicKey);
+      const host = document.getElementById('forge-info');
+      if (host) {
+        host.classList.remove('ok', 'warn', 'bad');
+        host.classList.add('warn');
+        host.innerHTML = renderVerifyBlock(
+          v,
+          v.overall
+            ? `😱 <strong>It verified — and no private key was used.</strong> You found this demo's deliberate weak spot: in the illustrative scheme the digest of h·s − c is stored <em>inside the signature</em>, so a forger who samples a short Gaussian s (exactly like the signer) and computes that digest honestly passes both checks. <strong>Real Falcon is immune:</strong> its verifier recomputes the challenge c and checks the fixed equation s₁ + s₂·h = c — the challenge dictates what s must satisfy, and finding a <em>short</em> solution to that equation without the trapdoor basis (f, g) is the SIS-style lattice problem believed hard even for quantum computers. This gap is exactly the distance between a teaching flow and FIPS 206.`
+            : 'The sampler happened to exceed the norm bound this time — try again.'
+        );
+      }
+    } finally {
+      forgeProBtn.disabled = false;
+    }
+  });
+
+  const flipBtn = root.querySelector<HTMLButtonElement>('#flip-btn');
+  flipBtn?.addEventListener('click', async () => {
+    if (!state.keyPair || !state.signResult) {
+      setStatus('forge-info', 'Sign a message first, then flip a coefficient of the real signature.', 'warn');
+      return;
+    }
+    const { signature, index } = flipSignatureCoefficient(state.signResult.signature);
+    const v = await verifyFalconIllustrative(state.signedMessage, signature, state.keyPair.publicKey);
+    const host = document.getElementById('forge-info');
+    if (host) {
+      host.classList.remove('ok', 'warn', 'bad');
+      host.classList.add(v.overall ? 'ok' : 'bad');
+      host.innerHTML = renderVerifyBlock(
+        v,
+        `Coefficient s[${index}] was nudged by ±1. The norm barely moved (${v.observedSquaredNorm} vs bound ${v.rejectionBound}), but h·s − c changed, so the digest no longer matches. A signature commits to the <em>exact</em> vector — shortness alone is not enough.`
+      );
+    }
+  });
+
+  // Paste-to-verify.
+  const pasteInput = root.querySelector<HTMLTextAreaElement>('#paste-input');
+  root.querySelector<HTMLButtonElement>('#paste-verify-btn')?.addEventListener('click', async () => {
+    const raw = pasteInput?.value.trim() ?? '';
+    if (!raw) {
+      setStatus('paste-info', 'Paste a signature JSON first (use “Copy as JSON” after signing).', 'warn');
+      return;
+    }
+    try {
+      const bundle = parseSignatureJson(raw);
+      const v = await verifyFalconIllustrative(bundle.message, bundle.signature, bundle.publicKey);
+      const fingerprint = await publicKeyFingerprint(bundle.publicKey);
+      const host = document.getElementById('paste-info');
+      if (host) {
+        host.classList.remove('ok', 'warn', 'bad');
+        host.classList.add(v.overall ? 'ok' : 'bad');
+        const preview = bundle.message.length > 80 ? `${bundle.message.slice(0, 80)}…` : bundle.message;
+        host.innerHTML = renderVerifyBlock(
+          v,
+          `Verified against the public key embedded in the JSON — signer key fingerprint <code class="mono">${fingerprint}</code> · message: “${escapeHtml(preview)}”. ${v.overall ? 'This message was signed by the holder of that key and has not been altered.' : 'Either the message, the vector s, or the key was altered after signing.'}`
+        );
+      }
+    } catch (err) {
+      setStatus('paste-info', err instanceof Error ? err.message : 'Could not parse the signature JSON.', 'bad');
+    }
+  });
+
+  // Real Falcon (WASM).
+  const realBtn = root.querySelector<HTMLButtonElement>('#real-falcon-btn');
+  realBtn?.addEventListener('click', async () => {
+    realBtn.disabled = true;
+    setStatus('real-falcon-info', 'Loading the Falcon-1024 WebAssembly module and generating a real keypair (this is the slow, real thing)…');
+    try {
+      const run = await runRealFalcon(state.message || 'Falcon');
+      const host = document.getElementById('real-falcon-info');
+      if (host) {
+        const healthy = run.verified && !run.tamperedVerified;
+        host.classList.remove('ok', 'warn', 'bad');
+        host.classList.add(healthy ? 'ok' : 'bad');
+        const illustrativeBytes = state.signResult?.signature.simulatedPayloadBytes;
+        host.innerHTML = `
+          <div class="table-wrap">
+            <table>
+              <caption>Real Falcon-1024 (reference implementation, WASM) — measured on your machine just now</caption>
+              <thead><tr><th>Step</th><th>Result</th><th>Time</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Key generation</th><td>public key ${run.publicKeyBytes} B · private key ${run.privateKeyBytes} B</td><td>${run.keygenMs.toFixed(1)} ms</td></tr>
+                <tr><th scope="row">Sign your message</th><td>signature ${run.signatureBytes} B · <code class="mono">${run.signatureHexPreview}…</code></td><td>${run.signMs.toFixed(1)} ms</td></tr>
+                <tr><th scope="row">Verify</th><td>${run.verified ? '✅ valid' : '❌ INVALID'}</td><td>${run.verifyMs.toFixed(1)} ms</td></tr>
+                <tr><th scope="row">Verify tampered message</th><td>${run.tamperedVerified ? '❌ ACCEPTED (bad!)' : '✅ rejected, as it must be'}</td><td>—</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="small-note">
+            Published Falcon-1024 sizes: public key 1,793 B · signature ≈1,280 B compressed (this build uses the fixed 1,330-byte padded format).
+            ${illustrativeBytes ? `Compare the illustrative flow's simulated payload above: ${illustrativeBytes} B — same order of magnitude, none of the constant-time engineering.` : 'Sign a message in Panel 3 to compare against the illustrative flow.'}
+          </p>
+        `;
+      }
+    } catch (err) {
+      setStatus(
+        'real-falcon-info',
+        `Could not run the WASM build (${err instanceof Error ? err.message : 'unknown error'}). This can happen offline or in browsers without WebAssembly support.`,
+        'warn'
+      );
+    } finally {
+      realBtn.disabled = false;
+    }
+  });
+
+  // Guided tour.
+  root.querySelector<HTMLButtonElement>('#tour-btn')?.addEventListener('click', () => {
+    const setLatticeMode = (mode: 'private' | 'public') => {
+      state.latticeBasisMode = mode;
+      root.querySelectorAll<HTMLInputElement>('input[name="lattice-basis"]').forEach((i) => {
+        i.checked = i.value === mode;
+      });
+      updateLatticeViz();
+    };
+    startTour([
+      {
+        target: '#panel-1',
+        title: 'The trapdoor is a short basis',
+        body: 'A lattice is every whole-number combination of two basis vectors. Signing means finding the lattice point closest to a hash target — easy with a short, near-orthogonal basis. We just placed a target for you: the private-basis rounding lands on the closest point.',
+        action: () => {
+          setLatticeMode('private');
+          root.querySelector<HTMLButtonElement>('#lattice-random-btn')?.click();
+        }
+      },
+      {
+        target: '#panel-1',
+        title: 'Same lattice, useless basis',
+        body: 'Now decode the same target with the public basis — long, skewed vectors that generate the exact same lattice. Babai rounding usually misses. In dimension 1024 this gap becomes cryptographic hardness.',
+        action: () => setLatticeMode('public')
+      },
+      {
+        target: '#panel-2',
+        title: 'Key generation — for real',
+        body: 'We just generated a keypair: short secret polynomials (f, g) and the public key h = g·f⁻¹ mod (q, xⁿ+1), computed with a real number-theoretic transform. h looks random; (f, g) is the short basis you just used.',
+        action: () => root.querySelector<HTMLButtonElement>('#keygen-btn')?.click()
+      },
+      {
+        target: '#panel-3',
+        title: 'Sign: hash, then sample short',
+        body: 'The message is hashed with a fresh nonce into a sparse challenge polynomial c, then the signer samples a short vector s. Watch the rejection-sampling loop below: attempts over the norm bound get thrown away.',
+        action: () => root.querySelector<HTMLFormElement>('#sign-form')?.requestSubmit()
+      },
+      {
+        target: '#panel-3',
+        title: 'Verify: two checks, both required',
+        body: 'The verifier recomputes the challenge from the message and checks (1) the digest of h·s − c matches and (2) ‖s‖² is under the bound. The norm check is the actual unforgeability witness.',
+        action: () => root.querySelector<HTMLButtonElement>('#verify-btn')?.click()
+      },
+      {
+        target: '#panel-3',
+        title: 'Tamper detection',
+        body: 'We just verified the same signature against a tampered message. The recomputed challenge changes, the digest no longer matches, and verification fails — authenticity and integrity in one primitive.',
+        action: () => root.querySelector<HTMLButtonElement>('#tamper-btn')?.click()
+      },
+      {
+        target: '#panel-3',
+        title: 'Why forgery fails (and where this demo cheats)',
+        body: 'A forger just tried: they picked a random s and computed the hash digest honestly. The recompute check passed — and the norm check failed by an order of magnitude. In real Falcon, shortness is the thing only the trapdoor buys you. After the tour, press “Forge like a pro” to find the one attack this toy scheme cannot stop — and read why the real verification equation can.',
+        action: () => root.querySelector<HTMLButtonElement>('#forge-btn')?.click()
+      },
+      {
+        target: '#panel-5',
+        title: 'Where real implementations get broken',
+        body: 'Falcon’s Gaussian sampler must be constant-time. This histogram shows per-sample timings — try both sampler modes. The leaky one’s timing strata spell out the secret distribution.',
+        action: () => root.querySelector<HTMLButtonElement>('#sample-btn')?.click()
+      },
+      {
+        target: '#panel-5',
+        title: 'Run the actual attack',
+        body: 'This plays the attacker: observe only timings across 200 signatures and correlate. Against the leaky sampler the leakage meter climbs; against the constant-time sampler it flatlines. Espitau et al. (2017) did this to BLISS for real.',
+        action: () => root.querySelector<HTMLButtonElement>('#attack-btn')?.click()
+      },
+      {
+        target: '#panel-6',
+        title: 'And this is the real thing',
+        body: 'Everything so far was illustrative. This panel runs the reference Falcon-1024 compiled to WebAssembly — real keys, real 1.3 kB signatures, real timings, on your machine. That’s the whole demo. Explore, and try the quizzes!',
+        action: () => root.querySelector<HTMLButtonElement>('#real-falcon-btn')?.click()
+      }
+    ]);
+  });
+
+  // Quiz answering, restore, and score.
   root.querySelectorAll<HTMLButtonElement>('.quiz-option').forEach((btn) => {
     btn.addEventListener('click', () => {
       const quizId = btn.dataset.quiz;
       if (!quizId) return;
       const quiz = quizzes[quizId];
       if (!quiz) return;
-      const correct = btn.dataset.correct === 'true';
-      const container = root.querySelector<HTMLElement>(`.quiz[data-quiz-id="${quizId}"]`);
-      const feedback = root.querySelector<HTMLElement>(`[data-quiz-feedback="${quizId}"]`);
-      container?.querySelectorAll<HTMLButtonElement>('.quiz-option').forEach((b) => {
-        b.disabled = true;
-        if (b.dataset.correct === 'true') b.classList.add('quiz-correct');
-        else if (b === btn) b.classList.add('quiz-wrong');
-      });
-      if (feedback) {
-        feedback.innerHTML = `<strong>${correct ? '✅ Correct.' : '❌ Not quite.'}</strong> ${escapeHtml(quiz.explanation)}`;
-        feedback.classList.add(correct ? 'ok' : 'bad');
-      }
+      applyQuizAnswer(root, quiz, Number(btn.dataset.idx), true);
     });
+  });
+
+  const stored = loadQuizState();
+  for (const [quizId, record] of Object.entries(stored)) {
+    const quiz = quizzes[quizId];
+    if (quiz) applyQuizAnswer(root, quiz, record.chosenIdx, false);
+  }
+  updateQuizScore();
+
+  document.getElementById('quiz-score')?.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    const reviewId = target.dataset.quizReview;
+    if (reviewId) {
+      const quizEl = root.querySelector<HTMLElement>(`.quiz[data-quiz-id="${reviewId}"]`);
+      quizEl?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+      return;
+    }
+    if (target.dataset.quizReset) {
+      resetQuizState();
+      resetQuizDom(root);
+      updateQuizScore();
+    }
   });
 }

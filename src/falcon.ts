@@ -284,6 +284,139 @@ export async function verifyFalconIllustrative(
   };
 }
 
+// A forger without the trapdoor CAN satisfy the hash equation — they pick any s
+// and compute the digest of h·s − c honestly. What they cannot do is make s short.
+// The result passes the recompute check and fails the norm check, which is the
+// whole story of Falcon unforgeability in one signature.
+export async function forgeRandomSignature(
+  message: string,
+  publicKey: FalconKeyPair['publicKey']
+): Promise<SignResult> {
+  const set = Object.values(PARAMETER_SETS).find((s) => s.params.n === publicKey.n) ?? FALCON_512;
+  const { n, q } = set.params;
+  const ctx = getNttContext(n);
+
+  const encoder = new TextEncoder();
+  const msgBytes = encoder.encode(message);
+  const nonceHex = randomNonceHex();
+  const nonceBytes = hexToBytes(nonceHex);
+
+  const hBytes = polyToBytes(publicKey.h);
+  const hashInput = concatBytes(msgBytes, nonceBytes, hBytes);
+  const hashed = await sha256(hashInput);
+  const expanded = await expandHash(hashed, 256);
+  const c = challengeFromHash(expanded, n);
+
+  // Uniform coefficients in [-8, 8]: E[s_i²] = 24, so ‖s‖² ≈ 24n — far over the bound.
+  const s = new Int16Array(n);
+  const rand = new Uint8Array(n);
+  crypto.getRandomValues(rand);
+  for (let i = 0; i < n; i += 1) {
+    s[i] = (rand[i] % 17) - 8;
+  }
+  const sqNorm = normSquared(s);
+
+  const hs = polyMulNtt(publicKey.h, s, ctx);
+  const u = polySub(hs, c, q);
+  const digestHex = bytesToHex(await sha256(polyToBytes(u)));
+
+  return {
+    signature: {
+      mode: 'Illustrative - not production Falcon',
+      parameterSetName: set.name,
+      n,
+      nonceHex,
+      s,
+      digestHex,
+      challengePoly: c,
+      hashHex: bytesToHex(hashed),
+      publishedSizeBytes: set.publishedSignatureBytes,
+      simulatedPayloadBytes: 16 + s.length * 2 + 32
+    },
+    attempts: [{ attempt: 1, squaredNorm: sqNorm, accepted: false }],
+    rejectionBound: set.rejectionBoundSqNorm,
+    finalSquaredNorm: sqNorm
+  };
+}
+
+// The "pro" forger — and a deliberate teaching moment about this demo's limits.
+// In this ILLUSTRATIVE scheme the digest of h·s − c is stored inside the
+// signature, so a forger who samples a short Gaussian s (just like the signer)
+// and computes that digest honestly passes BOTH checks. Real Falcon is immune:
+// its verification equation is s1 + s2·h = c — the challenge itself pins down
+// what s must satisfy, and finding a SHORT solution to that equation without
+// the trapdoor basis is the SIS-style lattice problem believed hard.
+export async function forgeShortSignature(
+  message: string,
+  publicKey: FalconKeyPair['publicKey']
+): Promise<SignResult> {
+  const set = Object.values(PARAMETER_SETS).find((s) => s.params.n === publicKey.n) ?? FALCON_512;
+  const { n, q } = set.params;
+  const ctx = getNttContext(n);
+
+  const encoder = new TextEncoder();
+  const msgBytes = encoder.encode(message);
+  const nonceHex = randomNonceHex();
+  const nonceBytes = hexToBytes(nonceHex);
+
+  const hBytes = polyToBytes(publicKey.h);
+  const hashInput = concatBytes(msgBytes, nonceBytes, hBytes);
+  const hashed = await sha256(hashInput);
+  const expanded = await expandHash(hashed, 256);
+  const c = challengeFromHash(expanded, n);
+
+  const attempts: SignAttempt[] = [];
+  let s = gaussianSamplePoly(n);
+  let sqNorm = normSquared(s);
+  let attemptNumber = 1;
+  attempts.push({ attempt: attemptNumber, squaredNorm: sqNorm, accepted: sqNorm <= set.rejectionBoundSqNorm });
+  while (sqNorm > set.rejectionBoundSqNorm && attemptNumber < 32) {
+    s = gaussianSamplePoly(n);
+    sqNorm = normSquared(s);
+    attemptNumber += 1;
+    attempts.push({ attempt: attemptNumber, squaredNorm: sqNorm, accepted: sqNorm <= set.rejectionBoundSqNorm });
+  }
+
+  const hs = polyMulNtt(publicKey.h, s, ctx);
+  const u = polySub(hs, c, q);
+  const digestHex = bytesToHex(await sha256(polyToBytes(u)));
+
+  return {
+    signature: {
+      mode: 'Illustrative - not production Falcon',
+      parameterSetName: set.name,
+      n,
+      nonceHex,
+      s,
+      digestHex,
+      challengePoly: c,
+      hashHex: bytesToHex(hashed),
+      publishedSizeBytes: set.publishedSignatureBytes,
+      simulatedPayloadBytes: 16 + s.length * 2 + 32
+    },
+    attempts,
+    rejectionBound: set.rejectionBoundSqNorm,
+    finalSquaredNorm: sqNorm
+  };
+}
+
+// Flips one coefficient of s in a copy of the signature. The norm barely moves,
+// but h·s − c changes, so the digest recompute check fails: signatures are bound
+// to the exact vector, not just to "a short vector".
+export function flipSignatureCoefficient(signature: FalconSignature): { signature: FalconSignature; index: number } {
+  const s = new Int16Array(signature.s);
+  const idx = new Uint16Array(1);
+  crypto.getRandomValues(idx);
+  const index = idx[0] % s.length;
+  s[index] = s[index] >= 8 ? s[index] - 1 : s[index] + 1;
+  return { signature: { ...signature, s }, index };
+}
+
+export async function publicKeyFingerprint(publicKey: FalconKeyPair['publicKey']): Promise<string> {
+  const digest = await sha256(polyToBytes(publicKey.h));
+  return bytesToHex(digest).slice(0, 16);
+}
+
 export function summarizeSignature(signature: FalconSignature): string {
   const sPreview = Array.from(signature.s.slice(0, 16)).join(',');
   return `${signature.parameterSetName} · nonce=${signature.nonceHex.slice(0, 16)}… · s[0..15]=[${sPreview}] · digest=${signature.digestHex.slice(0, 32)}…`;
@@ -293,7 +426,8 @@ export function signatureToJson(
   signature: FalconSignature,
   message: string,
   rejectionBound: number,
-  observedSquaredNorm: number
+  observedSquaredNorm: number,
+  publicKey?: FalconKeyPair['publicKey']
 ): string {
   return JSON.stringify(
     {
@@ -303,8 +437,10 @@ export function signatureToJson(
       nonceHex: signature.nonceHex,
       hashHex: signature.hashHex,
       digestHex: signature.digestHex,
-      sPreview: Array.from(signature.s.slice(0, 32)),
-      sLength: signature.s.length,
+      n: signature.n,
+      q: publicKey?.q ?? PARAMETER_SETS[signature.parameterSetName].params.q,
+      s: Array.from(signature.s),
+      publicKeyH: publicKey ? Array.from(publicKey.h) : undefined,
       observedSquaredNorm,
       rejectionBound,
       publishedSizeBytes: signature.publishedSizeBytes,
@@ -313,4 +449,51 @@ export function signatureToJson(
     null,
     2
   );
+}
+
+export type ParsedSignatureBundle = {
+  signature: FalconSignature;
+  publicKey: FalconKeyPair['publicKey'];
+  message: string;
+};
+
+// Parses the JSON produced by signatureToJson (or hand-edited by a curious student)
+// into a verifiable bundle. Throws with a human-readable message on any shape problem.
+export function parseSignatureJson(json: string): ParsedSignatureBundle {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(json);
+  } catch {
+    throw new Error('Not valid JSON. Paste the exact output of "Copy as JSON".');
+  }
+  const obj = raw as Record<string, unknown>;
+  const scheme = obj.scheme as FalconParameterSetName;
+  const set = PARAMETER_SETS[scheme];
+  if (!set) throw new Error(`Unknown scheme "${String(obj.scheme)}" — expected Falcon-512 or Falcon-1024.`);
+  const { n, q } = set.params;
+  if (typeof obj.message !== 'string') throw new Error('Missing "message" field.');
+  if (typeof obj.nonceHex !== 'string' || obj.nonceHex.length !== 32) throw new Error('Missing or malformed "nonceHex" (expected 32 hex chars).');
+  if (typeof obj.digestHex !== 'string' || obj.digestHex.length !== 64) throw new Error('Missing or malformed "digestHex" (expected 64 hex chars).');
+  if (!Array.isArray(obj.s) || obj.s.length !== n) throw new Error(`"s" must be an array of ${n} coefficients for ${scheme}.`);
+  if (!Array.isArray(obj.publicKeyH) || obj.publicKeyH.length !== n) {
+    throw new Error(`"publicKeyH" must be an array of ${n} coefficients — export was made without the public key.`);
+  }
+  const s = Int16Array.from(obj.s as number[]);
+  const h = Int16Array.from(obj.publicKeyH as number[]);
+  return {
+    signature: {
+      mode: 'Illustrative - not production Falcon',
+      parameterSetName: scheme,
+      n,
+      nonceHex: obj.nonceHex,
+      s,
+      digestHex: obj.digestHex,
+      challengePoly: new Int16Array(n),
+      hashHex: typeof obj.hashHex === 'string' ? obj.hashHex : '',
+      publishedSizeBytes: set.publishedSignatureBytes,
+      simulatedPayloadBytes: 16 + n * 2 + 32
+    },
+    publicKey: { h, n, q, encodedSizeBytes: set.publishedPublicKeyBytes },
+    message: obj.message
+  };
 }

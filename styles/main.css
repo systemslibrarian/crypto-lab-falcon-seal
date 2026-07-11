@@ -827,6 +827,232 @@ h3 {
 }
 
 
+/* Babai lattice playground */
+.lattice.interactive {
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+
+.basis-line.public {
+  stroke: var(--danger);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 7 4;
+}
+
+.target-x {
+  stroke: var(--danger);
+  stroke-width: 3;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.true-closest {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-dasharray: 3 3;
+}
+
+.babai-error {
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+
+.babai-error.hit {
+  stroke: var(--ok);
+}
+
+.babai-error.miss {
+  stroke: var(--danger);
+}
+
+.babai-snap.hit {
+  fill: var(--ok);
+  stroke: var(--bg-elev);
+  stroke-width: 2;
+}
+
+.babai-snap.miss {
+  fill: var(--danger);
+  stroke: var(--bg-elev);
+  stroke-width: 2;
+}
+
+/* Timing-attack simulation */
+.attack-block {
+  display: grid;
+  gap: 10px;
+}
+
+.attack-meter-row {
+  display: grid;
+  grid-template-columns: auto 1fr 56px;
+  align-items: center;
+  gap: 10px;
+}
+
+.attack-meter-label {
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.attack-meter {
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  overflow: hidden;
+}
+
+.attack-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  min-width: 2px;
+}
+
+.attack-meter-fill.miss {
+  background: linear-gradient(90deg, var(--warn), var(--danger));
+}
+
+.attack-meter-fill.hit {
+  background: var(--ok);
+}
+
+.attack-meter-pct {
+  font-weight: 700;
+  text-align: right;
+}
+
+.attack-spark {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 56px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+}
+
+.attack-spark-col {
+  flex: 1 1 auto;
+  background: linear-gradient(180deg, var(--danger), var(--accent-2));
+  border-radius: 2px 2px 0 0;
+  min-height: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .attack-meter-fill {
+    transition: width 200ms ease-out;
+  }
+}
+
+/* Paste-to-verify */
+.paste-details {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 10px 0;
+}
+
+.paste-details summary {
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.paste-details textarea {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  min-height: 110px;
+  margin-top: 8px;
+}
+
+/* Quiz score chip */
+#quiz-score:empty {
+  display: none;
+}
+
+.quiz-link {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  cursor: pointer;
+  padding: 4px;
+  font-weight: 700;
+}
+
+/* Guided tour */
+.tour-card {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  width: min(94vw, 560px);
+  z-index: 2000;
+  background: var(--bg-elev);
+  color: var(--text);
+  border: 2px solid var(--accent);
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+}
+
+.tour-progress {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tour-title {
+  margin: 4px 0 6px;
+}
+
+.tour-title:focus {
+  outline: none;
+}
+
+.tour-body {
+  margin: 0 0 10px;
+  line-height: 1.45;
+}
+
+.tour-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tour-highlight {
+  outline: 3px solid var(--accent-2);
+  outline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tour-card {
+    animation: tour-in 220ms ease-out both;
+  }
+
+  @keyframes tour-in {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+}
+
 /* ═══ Accessibility: WCAG AA contrast overrides (auto-added) ═══ */
 [data-theme="dark"] .skip-link { background-color: #2c8268; } /* was #4ce1b4 on #ffffff = 1.65:1 → 4.67:1 */
 [data-theme="dark"] .btn { background-color: #2c8268; } /* was #4ce1b4 on #ffffff = 1.65:1 → 4.67:1 */
