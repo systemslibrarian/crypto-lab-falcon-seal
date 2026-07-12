@@ -517,7 +517,7 @@ export function renderApp(root: HTMLElement): void {
 
   root.innerHTML = `
     <div class="page" aria-label="Falcon Seal page wrapper">
-      <header class="hero" aria-label="Header">
+      <div class="hero" aria-label="Header">
         <button
           id="theme-toggle"
           class="theme-toggle"
@@ -525,8 +525,22 @@ export function renderApp(root: HTMLElement): void {
           aria-label="${theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}"
           aria-pressed="${theme === 'dark' ? 'true' : 'false'}"
         >${theme === 'dark' ? '🌙' : '☀️'}</button>
+        <header class="cl-hero">
+          <div class="cl-hero-main">
+            <h1 class="cl-hero-title">Falcon Seal</h1>
+            <p class="cl-hero-sub">FN-DSA · FIPS 206 · NTRU-lattice signatures</p>
+            <p class="cl-hero-desc">
+              Explore the NTRU short-basis trapdoor: sample a short signature vector for a hashed challenge, verify by norm bound and public recomputation, and watch a timing attack leak a non-constant-time Gaussian sampler.
+            </p>
+          </div>
+          <aside class="cl-hero-why" aria-label="Why it matters">
+            <span class="cl-hero-why-label">WHY IT MATTERS</span>
+            <p class="cl-hero-why-text">
+              Falcon's signatures are the most compact of the NIST post-quantum standards, so it fits where certificates and firmware updates are tight. But its Gaussian sampler must run in constant time — a leaky one hands attackers the private key.
+            </p>
+          </aside>
+        </header>
         <p class="chip category">Post-Quantum Signatures</p>
-        <h1>Falcon Seal</h1>
         <p class="subtitle">
           Compact lattice signatures over NTRU lattices, with honest implementation caveats.
         </p>
@@ -555,14 +569,7 @@ export function renderApp(root: HTMLElement): void {
         <p class="small-note">
           Naming note: NIST's draft <strong>FIPS 206</strong> standardizes this design as <strong>FN-DSA</strong> (FFT-over-NTRU-lattice Digital Signature Algorithm) — the same dual naming ML-DSA/Dilithium and SLH-DSA/SPHINCS+ went through.
         </p>
-      </header>
-
-      <section class="why" aria-label="Why this matters section">
-        <h2>Why this matters</h2>
-        <p>
-          Falcon produces the smallest signatures among current NIST PQ signature standards, which helps keep certificate chains and IoT updates compact.
-        </p>
-      </section>
+      </div>
 
       <section class="panel" id="panel-1" aria-labelledby="p1-title">
         <h2 id="p1-title">Panel 1 — NTRU Lattice Primer</h2>
