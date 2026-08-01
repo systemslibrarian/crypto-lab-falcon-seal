@@ -99,6 +99,6 @@ export const comparisonRowsLevel5: SignatureRow[] = [
 export const references = [
   'Falcon specification v1.2: Fouque, Kirchner, Tibouchi, Wallet, et al.',
   'Ducas & Prest (2016): Fast Fourier Orthogonalization (ISSAC 2016) — the algorithm behind Falcon Fast Fourier Sampling.',
-  'NIST FIPS 204 (ML-DSA), FIPS 205 (SLH-DSA), FIPS 206 related PQ signature context.',
+  'NIST PQC signature context: FIPS 204 (ML-DSA) and FIPS 205 (SLH-DSA) are published; FIPS 206 (FN-DSA), the Falcon standard, is in development and has no draft yet — <a href="https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization" target="_blank" rel="noreferrer">NIST PQC standardization project</a>.',
   'Timing numbers are indicative reference-software style measurements and hardware-dependent.'
 ];

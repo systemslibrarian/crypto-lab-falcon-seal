@@ -529,7 +529,7 @@ export function renderApp(root: HTMLElement): void {
         <header class="cl-hero">
           <div class="cl-hero-main">
             <h1 class="cl-hero-title">Falcon Seal</h1>
-            <p class="cl-hero-sub">FN-DSA · FIPS 206 · NTRU-lattice signatures</p>
+            <p class="cl-hero-sub">FN-DSA · FIPS 206 (in development) · NTRU-lattice signatures</p>
             <p class="cl-hero-desc">
               Explore the NTRU short-basis trapdoor: sample a short signature vector for a hashed challenge, verify by norm bound and public recomputation, and watch a timing attack leak a non-constant-time Gaussian sampler.
             </p>
@@ -568,7 +568,7 @@ export function renderApp(root: HTMLElement): void {
           <span id="quiz-score" class="chip" aria-live="polite" aria-label="Quiz score"></span>
         </div>
         <p class="small-note">
-          Naming note: NIST's draft <strong>FIPS 206</strong> standardizes this design as <strong>FN-DSA</strong> (FFT-over-NTRU-lattice Digital Signature Algorithm) — the same dual naming ML-DSA/Dilithium and SLH-DSA/SPHINCS+ went through.
+          Naming note: NIST will standardize this design as <strong>FN-DSA</strong> (FFT-over-NTRU-lattice Digital Signature Algorithm) in <strong>FIPS 206 (in development)</strong> — the same dual naming ML-DSA/Dilithium and SLH-DSA/SPHINCS+ went through. FIPS 206 has not been drafted yet, so FN-DSA is a selected-and-named algorithm rather than a published standard.
         </p>
       </div>
 
@@ -625,7 +625,7 @@ export function renderApp(root: HTMLElement): void {
 
         <div class="actions" aria-label="Key generation controls">
           <button id="keygen-btn" class="btn" type="button" aria-label="Generate ${set.name} keypair">Generate ${set.name} keypair</button>
-          <span class="status-chip" aria-label="NIST standard status">Selected by NIST — draft FIPS 206 (FN-DSA), alternate to ML-DSA</span>
+          <span class="status-chip" aria-label="NIST standard status">Selected by NIST — FIPS 206 (FN-DSA) in development, alternate to ML-DSA</span>
         </div>
         <div id="key-info" class="output" aria-live="polite" aria-label="Generated key information"></div>
         ${renderQuiz(quizzes.q2)}

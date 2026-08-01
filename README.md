@@ -2,7 +2,7 @@
 
 ## What It Is
 
-crypto-lab-falcon-seal is a browser-based teaching demo for Falcon-512 and Falcon-1024 (standardized by NIST as **FN-DSA** in draft FIPS 206), a post-quantum asymmetric digital signature family built on the NTRU Lattice and Fast Fourier Sampling. It walks through key generation, signing, verification, and comparison with ML-DSA and SLH-DSA. The problem it solves is authenticity and tamper detection: a signer proves authorship of a message, and a verifier can detect changes later. The repository is explicit about scope by labeling the signing path **Illustrative - not production Falcon** — and then backs that up with a final panel that runs the **real reference Falcon-1024, compiled to WebAssembly**, so learners can compare the teaching flow against production output side by side.
+crypto-lab-falcon-seal is a browser-based teaching demo for Falcon-512 and Falcon-1024 (selected by NIST for standardization as **FN-DSA**, to be published as **FIPS 206 (in development)**), a post-quantum asymmetric digital signature family built on the NTRU Lattice and Fast Fourier Sampling. It walks through key generation, signing, verification, and comparison with ML-DSA and SLH-DSA. The problem it solves is authenticity and tamper detection: a signer proves authorship of a message, and a verifier can detect changes later. The repository is explicit about scope by labeling the signing path **Illustrative - not production Falcon** — and then backs that up with a final panel that runs the **real reference Falcon-1024, compiled to WebAssembly**, so learners can compare the teaching flow against production output side by side.
 
 ## When to Use It
 
@@ -34,9 +34,9 @@ In the browser you can generate a Falcon-512 keypair, sign a message, verify the
 
 ## Real-World Usage
 
-Well-known production deployment is still limited, but these standards and interoperability stacks already use the Falcon family today:
+Well-known production deployment is still limited, but these standardization efforts and interoperability stacks already carry the Falcon family today:
 
-- **FN-DSA / NIST FIPS 206** — NIST's federal post-quantum signature track standardizes the Falcon-derived family for digital signatures.
+- **FN-DSA / NIST FIPS 206 (in development)** — NIST selected Falcon for its federal post-quantum signature track and will publish the Falcon-derived family as FN-DSA in FIPS 206. That document has not been drafted yet — not even an initial public draft — unlike FIPS 203/204/205, which were finalized in August 2024.
 - **Open Quantum Safe (`liboqs`, `OQS-OpenSSL`, and `oqs-provider`)** — these widely used migration projects expose Falcon for experimental TLS handshakes, X.509 chains, and interoperability testing.
 - **PQClean** — the project maintains portable Falcon implementations that downstream researchers and engineers use for validation and integration work.
 - **SUPERCOP / eBATS benchmarking** — Falcon is measured in the same benchmarking ecosystem used to compare real signature implementations across platforms.
@@ -72,9 +72,9 @@ npm run build && npm run test:e2e
 
 ## References
 
-- Falcon: Fast-Fourier Lattice-Based Compact Signatures over NTRU (official specification document, v1.2)
+- Falcon: Fast-Fourier Lattice-Based Compact Signatures over NTRU (official specification document, v1.2) — [falcon-sign.info](https://falcon-sign.info/)
 - Ducas, Prest (2016), Fast Fourier Orthogonalization (ISSAC 2016) — the basis of Falcon's Fast Fourier Sampling
-- NIST FIPS 206 and the NIST PQC signature standards context (including ML-DSA and SLH-DSA publications)
+- [NIST Post-Quantum Cryptography Standardization](https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization) — the selection record and the status of FIPS 206 (in development), alongside the published ML-DSA (FIPS 204) and SLH-DSA (FIPS 205) standards
 
 ---
 
