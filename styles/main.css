@@ -152,6 +152,27 @@ h2 {
   background-color: rgba(0, 106, 82, 0.13);
 }
 
+/*
+ * Marks a panel or figure whose numbers are modelled or demo-calibrated rather
+ * than measured or spec-derived. Intentionally NOT .status-chip: that class
+ * carries a 44px interactive touch target, and this is a static label sitting
+ * inside a heading.
+ */
+.fidelity-tag {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background-color: rgba(178, 70, 0, 0.12);
+  font-size: 0.7em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .btn {
   appearance: none;
   border: 1px solid transparent;

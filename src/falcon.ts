@@ -19,7 +19,15 @@ export type FalconParameterSet = {
   publishedPublicKeyBytes: number;
   publishedPrivateKeyBytes: number;
   publishedSignatureBytes: number;
+  /**
+   * The bound this demo enforces. It is calibrated to this build's σ = 1.2
+   * sampler so the rejection loop stays visible on screen, and it is NOT
+   * Falcon's β². Anywhere it is shown to a learner it must be labelled as a
+   * demo constant, with `publishedRejectionBoundSqNorm` alongside it.
+   */
   rejectionBoundSqNorm: number;
+  /** Falcon's actual ⌊β²⌋ for this parameter set, shown for contrast only. */
+  publishedRejectionBoundSqNorm: number;
 };
 
 export const FALCON_512: FalconParameterSet = {
@@ -28,9 +36,15 @@ export const FALCON_512: FalconParameterSet = {
   publishedPublicKeyBytes: 897,
   publishedPrivateKeyBytes: 1281,
   publishedSignatureBytes: 666,
-  // Tuned via scripts/verify-bounds.mjs against the clamped σ=1.2 Box–Muller sampler
-  // (E[s_i²] ≈ 1.55). ~67% per-attempt acceptance for n=512 → most sigs show 1–3 attempts.
-  rejectionBoundSqNorm: 800
+  // DEMO CONSTANT — not Falcon's bound. Tuned via scripts/verify-bounds.mjs
+  // against the clamped σ=1.2 Box–Muller sampler (E[s_i²] ≈ 1.55) so that
+  // ~67% of attempts are accepted at n=512, which keeps the on-screen rejection
+  // loop at a legible 1–3 attempts. Falcon-512's real bound is ⌊β²⌋ = 34,034,726,
+  // four to five orders of magnitude larger, because it applies to the pair
+  // (s₁, s₂) over 2n coefficients drawn at σ ≈ 165.7 rather than to n
+  // coefficients at σ = 1.2. See `publishedRejectionBoundSqNorm` below.
+  rejectionBoundSqNorm: 800,
+  publishedRejectionBoundSqNorm: 34034726
 };
 
 export const FALCON_1024: FalconParameterSet = {
@@ -39,7 +53,10 @@ export const FALCON_1024: FalconParameterSet = {
   publishedPublicKeyBytes: 1793,
   publishedPrivateKeyBytes: 2305,
   publishedSignatureBytes: 1280,
-  rejectionBoundSqNorm: 1580
+  // DEMO CONSTANT, same story as Falcon-512 above. Falcon-1024's real bound is
+  // ⌊β²⌋ = 70,265,242.
+  rejectionBoundSqNorm: 1580,
+  publishedRejectionBoundSqNorm: 70265242
 };
 
 export const PARAMETER_SETS: Record<FalconParameterSetName, FalconParameterSet> = {
@@ -194,6 +211,36 @@ export async function generateFalconKeyPair(set: FalconParameterSet): Promise<Fa
   };
 }
 
+/**
+ * Illustrative signing flow. READ THIS BEFORE BELIEVING ANY UI COPY ABOUT IT.
+ *
+ * This does NOT implement Falcon's trapdoor sampling, and it does not use the
+ * private key at all. Despite taking a full `FalconKeyPair`, the only key
+ * material it touches is `keyPair.publicKey.h` — `privateKey.f` and
+ * `privateKey.g` are never read. The vector `s` is drawn from a centred
+ * Gaussian and looped on `‖s‖²` alone; the challenge `c` is computed but is not
+ * an input to the sampler, so `h·s` is nowhere near `c`. The message is bound
+ * afterwards, by publishing the digest of `u = h·s − c` inside the signature.
+ *
+ * Consequence: this scheme is trivially forgeable, and deliberately so — see
+ * `forgeShortSignature` below, which runs the identical sampling loop with no
+ * private key and is accepted by `verifyFalconIllustrative`. The "Forge like a
+ * pro" control in Panel 3 is wired to it, and `tests/falcon.test.ts` asserts
+ * the forgery succeeds.
+ *
+ * Real Falcon signs by using the full trapdoor basis (f, g, F, G) to sample a
+ * short (s₁, s₂) satisfying the fixed equation s₁ + s₂·h = c. Implementing that
+ * here is out of reach for this build, not merely unimplemented: `generateFalconKeyPair`
+ * produces only (f, g, h) and never solves the NTRU equation f·G − g·F = q, so
+ * there is no (F, G) to sample against; and fast-Fourier sampling additionally
+ * needs an LDL tree over R = Z[x]/(xⁿ+1) in floating point, where this build has
+ * only an integer NTT mod q. Two substantial pieces of machinery, neither present.
+ *
+ * What this flow does teach honestly: the hash-to-challenge step, the shape of a
+ * rejection loop, the fact that verification is two independent checks, that
+ * tampering breaks the recompute check, and — via the forge button — what it
+ * looks like when a signature scheme's norm check is not tied to an equation.
+ */
 export async function signFalconIllustrative(message: string, keyPair: FalconKeyPair): Promise<SignResult> {
   const set = keyPair.parameterSet;
   const { n, q } = set.params;
@@ -341,8 +388,12 @@ export async function forgeRandomSignature(
 
 // The "pro" forger — and a deliberate teaching moment about this demo's limits.
 // In this ILLUSTRATIVE scheme the digest of h·s − c is stored inside the
-// signature, so a forger who samples a short Gaussian s (just like the signer)
-// and computes that digest honestly passes BOTH checks. Real Falcon is immune:
+// signature, so a forger who samples a short Gaussian s and computes that digest
+// honestly passes BOTH checks. Note how literally "just like the signer" is
+// meant: the sampling loop below is the same loop as in signFalconIllustrative,
+// because that function does not read the private key either. The signer holds
+// no advantage over this forger, which is the whole reason this control exists.
+// Real Falcon is immune:
 // its verification equation is s1 + s2·h = c — the challenge itself pins down
 // what s must satisfy, and finding a SHORT solution to that equation without
 // the trapdoor basis is the SIS-style lattice problem believed hard.

@@ -289,8 +289,8 @@ function renderTimingHistogram(samples: TimingSample[]): string {
     .join('');
   const verdict =
     state.samplerMode === 'leaky'
-      ? `Wide spread (${min}–${max} ns). Timing correlates with |sample| — an attacker reading these timings can recover bits of the secret distribution. This is the Espitau et al. 2017 attack vector.`
-      : `Tight cluster (${min}–${max} ns). Time is independent of the sampled value. This is what Falcon §3.8 requires.`;
+      ? `Wide spread (${min}–${max} ns, modelled — see the warning above). Timing correlates with |sample| by construction, standing in for a real sampler that short-circuits early. Against such a sampler an attacker reading these timings can recover bits of the secret distribution: the Espitau et al. 2017 attack vector.`
+      : `Tight cluster (${min}–${max} ns, modelled — see the warning above). Time is made independent of the sampled value, standing in for a fixed table walk. This is what Falcon §3.8 requires.`;
   return `
     <div class="histo" aria-label="Per-sample timing histogram">${cols}</div>
     <p class="small-note">${verdict}</p>
@@ -345,10 +345,17 @@ function renderAttempts(): string {
       `;
     })
     .join('');
+  const set = PARAMETER_SETS[result.signature.parameterSetName];
   return `
     <div class="attempts-block" aria-label="Rejection sampling attempts">
-      <div class="attempts-header">Rejection-sampling loop · bound ‖s‖² ≤ ${bound}</div>
+      <div class="attempts-header">Rejection-sampling loop · bound ‖s‖² ≤ ${bound} <span class="fidelity-tag">Demo constant</span></div>
       <ol class="attempts">${rows}</ol>
+      <p class="small-note">
+        ${bound} is this demo's own bound, tuned so the loop above runs a legible 1–3 times against this build's σ = 1.2 sampler.
+        ${set.name}'s real bound is ⌊β²⌋ = ${set.publishedRejectionBoundSqNorm.toLocaleString()} — around
+        ${Math.round(set.publishedRejectionBoundSqNorm / bound).toLocaleString()}× larger, because it applies to the pair (s₁, s₂) across 2n
+        coefficients sampled at σ ≈ 165.7, not to n coefficients at σ = 1.2. Do not read the number on the left as a Falcon parameter.
+      </p>
     </div>
   `;
 }
@@ -361,7 +368,7 @@ function renderVerifyBlock(v: VerifyResult, note?: string): string {
     : '<span class="badge bad-badge">Rejected</span>';
   return `
     <div class="verify-block" aria-label="Verification result">
-      <div class="verify-row"><span>${normIcon}</span><span><strong>Norm check:</strong> ‖s‖² = ${v.observedSquaredNorm} ≤ ${v.rejectionBound}? ${v.normCheckOk ? 'yes' : 'no'}</span></div>
+      <div class="verify-row"><span>${normIcon}</span><span><strong>Norm check:</strong> ‖s‖² = ${v.observedSquaredNorm} ≤ ${v.rejectionBound} (demo constant, not Falcon's β²)? ${v.normCheckOk ? 'yes' : 'no'}</span></div>
       <div class="verify-row"><span>${hashIcon}</span><span><strong>Recompute check:</strong> hash(h·s − c) matches stored digest? ${v.recomputeCheckOk ? 'yes' : 'no'}</span></div>
       <div class="verify-row">${overall}</div>
       ${note ? `<p class="small-note">${note}</p>` : ''}
@@ -390,7 +397,7 @@ function renderAttack(): string {
     .join('');
   const verdict = attack.done
     ? leaky
-      ? `<strong>Attack succeeded.</strong> Timing explains ${pct}% of the variance in |sample| (r = ${last.correlation.toFixed(3)}), and the timing strata alone recover the sampler's σ ≈ ${sigma?.toFixed(2) ?? '—'} (true σ = 1.20). Espitau et al. (CCS 2017) turned exactly this class of sampler leakage into full BLISS key recovery — <em>a single</em> execution of strongSwan's signing routine sufficed via branch tracing, as did one electromagnetic trace on an 8-bit microcontroller. The purely statistical form shown here is slower but still cheap: roughly 450 signatures with a perfect cache channel, under 3 500 in practice (Groot Bruinderink et al., CHES 2016).`
+      ? `<strong>Attack succeeded — against the model.</strong> Timing explains ${pct}% of the variance in |sample| (r = ${last.correlation.toFixed(3)}), and the timing strata alone recover the sampler's σ ≈ ${sigma?.toFixed(2) ?? '—'} (true σ = 1.20). Remember what that means here: the timings were computed as <code>820 + (|sample| + 1) × 70 + jitter</code>, so the correlation is recovering a formula this page wrote a moment ago, not a physical leak. The real result it stands in for: Espitau et al. (CCS 2017) turned exactly this class of sampler leakage into full BLISS key recovery — <em>a single</em> execution of strongSwan's signing routine sufficed via branch tracing, as did one electromagnetic trace on an 8-bit microcontroller. The purely statistical form shown here is slower but still cheap: roughly 450 signatures with a perfect cache channel, under 3 500 in practice (Groot Bruinderink et al., CHES 2016).`
       : `<strong>Attack failed.</strong> After ${last.signaturesObserved} signatures, correlation r = ${last.correlation.toFixed(3)} — statistically nothing${sigma === null ? ', and the timings form a single stratum, so no magnitudes can be read out' : ''}. Constant-time sampling starves the attacker of signal, which is why Falcon §3.8 mandates it.`
     : `Observing… ${last.signaturesObserved} signatures (${last.samplesObserved.toLocaleString()} sampler timings) so far. Correlation r = ${last.correlation.toFixed(3)}.`;
   return `
@@ -444,22 +451,23 @@ const quizzes: Record<string, Quiz> = {
       { text: 'The hash function used to bind the message.' }
     ],
     explanation:
-      'The private key is the short basis (f, g). Without it, sampling within the rejection bound is infeasible — this asymmetry is what makes signing hard for everyone except the key holder.'
+      'The private key is the short basis (f, g), extended by keygen to the full basis (f, g, F, G). Without it, sampling a short vector that also solves the challenge equation s₁ + s₂·h = c is infeasible — that asymmetry is what makes signing hard for everyone except the key holder. Note the qualifier: sampling a short vector on its own is easy. This demo does not implement the trapdoor at all — its signing path never reads (f, g) — which is why the “Forge like a pro” button in Panel 3 succeeds.'
   },
   q3: {
     id: 'q3',
-    prompt: 'Why does Falcon’s verifier check the squared norm of the signature s?',
+    prompt:
+      'The “Forge like a pro” button in the Forgery playground above produces a short s with no private key, and this demo’s verifier accepts it. What does that show about a norm check?',
     options: [
-      { text: 'To save bandwidth.' },
+      { text: 'Nothing — real Falcon has no norm check either.' },
       {
-        text: 'Because only a holder of the short basis can produce s with ‖s‖² below the bound; the norm check is the actual unforgeability witness.',
+        text: 'A norm bound is an unforgeability witness only when the short vector must also solve a fixed equation the challenge pins down. Real Falcon demands s₁ + s₂·h = c and then asks for a short solution; this demo never ties s to c, so shortness on its own is free.',
         correct: true
       },
-      { text: 'To detect replay attacks.' },
-      { text: 'To compress the signature for transmission.' }
+      { text: 'The forger must have recovered the private key (f, g) from the public key h.' },
+      { text: 'The demo’s Gaussian sampler is miscalibrated and produces vectors that are too long.' }
     ],
     explanation:
-      'A random forger can construct an s that hashes consistently with the public equation, but cannot make it short. The norm bound is what closes the loop.'
+      'Sampling a short Gaussian vector is easy — anyone can do it, which is what the forge button does. What is hard is sampling a short vector that also satisfies s₁ + s₂·h = c for a challenge you do not control, and only the trapdoor basis makes that possible. This build never enforces that equation during signing, so its norm check is a shortness test rather than an unforgeability witness. An earlier version of this quiz marked “only a holder of the short basis can produce a short s” as the right answer, which the forge button on this very panel disproves.'
   },
   q4: {
     id: 'q4',
@@ -602,11 +610,11 @@ export function renderApp(root: HTMLElement): void {
       <section class="panel" id="panel-2" aria-labelledby="p2-title">
         <h2 id="p2-title">Panel 2 — Falcon Key Generation</h2>
         <p class="warning" role="note" aria-label="Disclosure note">
-          <strong>Illustrative — not production Falcon.</strong> This demo computes a <em>real</em> NTRU public key <code>h = g · f⁻¹ mod (q, x<sup>n</sup>+1)</code> via negacyclic NTT, but the signing flow uses an educational Gaussian sampler in place of Falcon's constant-time Fast Fourier Sampling.
+          <strong>Illustrative — not production Falcon.</strong> This demo computes a <em>real</em> NTRU public key <code>h = g · f⁻¹ mod (q, x<sup>n</sup>+1)</code> via negacyclic NTT. The signing flow, however, does not merely swap in an educational sampler — it does not use the trapdoor at all. Keygen stops at (f, g, h) and never solves the NTRU equation f·G − g·F = q, so the completing pair (F, G) does not exist in this build, and Panel 3's signer never reads (f, g). See the warnings there.
         </p>
-        <p><strong>Private key:</strong> short polynomial pair (f, g) with coefficients in {−1, 0, +1}, forming a short basis of the NTRU lattice.</p>
-        <p><strong>Public key:</strong> h = g · f⁻¹ mod q in the ring R<sub>q</sub> = Z<sub>q</sub>[x]/(x<sup>n</sup>+1). Computed here via NTT-based polynomial inversion (q = 12289 is NTT-friendly: q−1 = 12288 is divisible by 2n for both n=512 and n=1024).</p>
-        <p><strong>Trapdoor:</strong> the short basis enables Gram-Schmidt orthogonalization, which is essential for the Fast Fourier Sampling used during signing.</p>
+        <p><strong>Private key:</strong> short polynomial pair (f, g) with coefficients in {−1, 0, +1}, forming a short basis of the NTRU lattice. Real Falcon extends this to the full basis (f, g, F, G) with an NTRU solve; this build does not, and its (f, g) are ternary rather than sampled at Falcon's σ<sub>f,g</sub>.</p>
+        <p><strong>Public key:</strong> h = g · f⁻¹ mod q in the ring R<sub>q</sub> = Z<sub>q</sub>[x]/(x<sup>n</sup>+1). Computed here via NTT-based polynomial inversion (q = 12289 is NTT-friendly: q−1 = 12288 is divisible by 2n for both n=512 and n=1024). This part is real.</p>
+        <p><strong>Trapdoor:</strong> in Falcon, the short basis enables Gram-Schmidt orthogonalization (as an LDL tree over the ring, in floating point), which is what makes Fast Fourier Sampling possible during signing. This build has an integer NTT mod q and no float ring arithmetic, so it has none of that machinery — the trapdoor is described on this page but not implemented anywhere in it.</p>
 
         <div class="key-size-table" aria-label="Key and signature size comparison">
           <table>
@@ -646,7 +654,13 @@ export function renderApp(root: HTMLElement): void {
           </div>
         </form>
         <p>
-          <strong>Gaussian sampling process:</strong> the signer hashes the message with a fresh nonce, derives a sparse challenge polynomial c, then samples a short signature vector s such that h·s ≈ c in the NTRU ring. The verifier (1) re-derives c from message+nonce+h, (2) recomputes u = h·s − c and checks its digest matches, and (3) <em>checks ‖s‖² is below the rejection bound</em>. Both checks must pass.
+          <strong>In real Falcon:</strong> the signer hashes the message with a fresh nonce, derives a sparse challenge polynomial c, and then uses the trapdoor basis (f, g, F, G) to sample a <em>short</em> pair (s₁, s₂) that satisfies the fixed equation s₁ + s₂·h = c. The challenge dictates what s must satisfy; finding a short solution to it without the trapdoor is the hard lattice problem.
+        </p>
+        <p class="warning" role="note" aria-label="Signing fidelity warning">
+          <strong>In this demo, signing does not do that.</strong> <code>signFalconIllustrative</code> samples s from a centred Gaussian and loops only until ‖s‖² falls under the bound — c is not an input to the sampler, and the private key (f, g) is never read. The message is bound afterwards, by publishing the digest of u = h·s − c. So the two verifier checks below are real and both genuinely fail on tampering, but they do <em>not</em> establish that a private key was involved. The <strong>Forge like a pro</strong> button in the Forgery playground proves it. This is not fixable by editing the sampler: this build's keygen produces only (f, g, h) and never solves the NTRU equation f·G − g·F = q, so there is no full basis (F, G) to sample against and no fast-Fourier sampler over it.
+        </p>
+        <p>
+          <strong>What the verifier actually does here:</strong> (1) re-derive c from message + nonce + h, (2) recompute u = h·s − c and check its digest matches the one in the signature, and (3) <em>check ‖s‖² is below the rejection bound</em>. Both checks must pass, and both catch tampering — but step 3 is checked against a freely-chosen s rather than against a solution to a pinned equation, which is exactly the gap the forge button walks through.
         </p>
         <p class="warning" role="note" aria-label="Implementation warning">
           <strong>Implementation warning:</strong> the Gaussian sampler <em>must</em> be constant-time in production — see Panel 5 for an interactive demonstration of why.
@@ -751,9 +765,19 @@ export function renderApp(root: HTMLElement): void {
       <section class="panel" id="panel-5" aria-labelledby="p5-title">
         <h2 id="p5-title">Panel 5 — Side-Channels, Use Cases, and Warnings</h2>
 
-        <h3>Side-channel timing lab</h3>
+        <h3>Side-channel timing lab <span class="fidelity-tag">Model — no clock is read</span></h3>
+        <p class="warning" role="note" aria-label="Timing lab fidelity warning">
+          <strong>Every nanosecond figure in this lab is computed, not measured.</strong> <code>simulateSamplerTimings</code> assigns each draw
+          <code>nanos = 820 + (|sample| + 1) × 70 + jitter</code> in leaky mode and a flat <code>820 + 9 × 70 + jitter</code> in constant-time mode.
+          The attack then correlates those numbers against the very magnitudes that produced them, so it is guaranteed to succeed in leaky mode and
+          guaranteed to fail in constant-time mode. It reproduces the <em>shape</em> of the real result; it does not independently discover it.
+          The reason it is a model rather than a measurement is itself the lesson: browsers deliberately coarsen <code>performance.now()</code> to
+          microseconds or worse precisely to make this class of attack unmountable from a web page, so a real 70 ns stratum cannot be observed here
+          at all. The published attacks below are real, were run on real implementations, and are cited for what they found — not as a description of
+          what this panel just did.
+        </p>
         <p>
-          Falcon's Gaussian sampler is the single component where most real-world attacks land. A non-constant-time sampler leaks the magnitude of each sampled coefficient through timing; aggregated over many signatures, this recovers bits of the secret key.
+          With that said: Falcon's Gaussian sampler is the single component where most real-world attacks land. A non-constant-time sampler leaks the magnitude of each sampled coefficient through timing; aggregated over many signatures, this recovers bits of the secret key.
         </p>
         <fieldset class="sampler-mode" aria-label="Sampler mode toggle">
           <legend>Simulated sampler</legend>
@@ -819,8 +843,10 @@ export function renderApp(root: HTMLElement): void {
         </div>
         <div id="real-falcon-info" class="output" aria-live="polite" aria-label="Real Falcon run results"></div>
         <p class="small-note">
-          This build exposes Falcon-1024 with the fixed-size <em>padded</em> signature format (1 header byte + 40-byte salt + padded body). The
-          variable-size compressed format from the spec averages ≈1,280 B — both are standard encodings.
+          This build exposes Falcon-1024 with the fixed-size <em>padded</em> signature format: 1 header byte + 40-byte salt + padded body = 1,330 B,
+          per PQClean's <code>CRYPTO_BYTES</code>. The number you will see reported above is <strong>1,332 B</strong>, because the
+          <code>falcon-crypto</code> WebAssembly wrapper prepends a 2-byte length prefix to the PQClean output. The variable-size compressed format
+          from the spec averages ≈1,280 B — all three are real numbers describing the same signature at different layers.
         </p>
       </section>
 
@@ -1012,9 +1038,17 @@ function bindEvents(root: HTMLElement): void {
         state.keyPair.privateKey.regenerationsForInvertibility > 0
           ? ` Regenerated f ${state.keyPair.privateKey.regenerationsForInvertibility}× until invertible in R_q.`
           : ' f was invertible on first try.';
+      // Report the spec figures as spec figures and the in-browser objects as
+      // what they are. encodedSizeBytes is a published constant copied from the
+      // parameter set, not a measurement of the keypair just generated — these
+      // are Int16Array coefficient vectors, 2 bytes per coefficient, with none
+      // of Falcon's key compression applied. Same pattern the sign handler uses
+      // for "published sig size … (simulated payload …)".
+      const measuredPubBytes = state.keyPair.publicKey.h.length * 2;
+      const measuredPrivBytes = (state.keyPair.privateKey.f.length + state.keyPair.privateKey.g.length) * 2;
       setStatus(
         'key-info',
-        `${state.parameterSetName} keypair ready in ${ms} ms. Public key h: ${state.keyPair.publicKey.encodedSizeBytes} B · private (f, g): ${state.keyPair.privateKey.encodedSizeBytes} B.${regenNote} h was computed as g · f⁻¹ mod (q=${state.keyPair.publicKey.q}, x^${state.keyPair.publicKey.n}+1).`,
+        `${state.parameterSetName} keypair ready in ${ms} ms. Published key sizes: public h ${state.keyPair.publicKey.encodedSizeBytes} B · private (f, g) ${state.keyPair.privateKey.encodedSizeBytes} B — those are the Falcon spec figures, not measurements of this object. What this build actually holds in memory is uncompressed Int16 coefficient vectors: h ${measuredPubBytes} B · (f, g) ${measuredPrivBytes} B.${regenNote} h was computed as g · f⁻¹ mod (q=${state.keyPair.publicKey.q}, x^${state.keyPair.publicKey.n}+1).`,
         'ok'
       );
       state.signResult = null;
@@ -1050,7 +1084,7 @@ function bindEvents(root: HTMLElement): void {
       state.verifyResult = null;
       setStatus(
         'sign-info',
-        `${result.signature.parameterSetName} · published sig size: ${result.signature.publishedSizeBytes} B (simulated payload ${result.signature.simulatedPayloadBytes} B). Final ‖s‖² = ${result.finalSquaredNorm} (bound ${result.rejectionBound}). ${result.attempts.length} attempt(s). ${summarizeSignature(result.signature)}`,
+        `${result.signature.parameterSetName} · published sig size: ${result.signature.publishedSizeBytes} B (simulated payload ${result.signature.simulatedPayloadBytes} B). Final ‖s‖² = ${result.finalSquaredNorm} (demo bound ${result.rejectionBound}). ${result.attempts.length} attempt(s). ${summarizeSignature(result.signature)}`,
         'ok'
       );
       updateAttempts();
@@ -1244,7 +1278,7 @@ function bindEvents(root: HTMLElement): void {
         const factor = (v.observedSquaredNorm / v.rejectionBound).toFixed(1);
         host.innerHTML = renderVerifyBlock(
           v,
-          `The forger picked a random s and computed the digest of h·s − c honestly — so the recompute check passes. But ‖s‖² = ${v.observedSquaredNorm} is ${factor}× over the bound ${v.rejectionBound}: rejected. Now try “Forge like a pro” to see what a smarter attacker does with this <em>toy</em> scheme — and why real Falcon shrugs it off.`
+          `The forger picked a random s and computed the digest of h·s − c honestly — so the recompute check passes. But ‖s‖² = ${v.observedSquaredNorm} is ${factor}× over the demo bound ${v.rejectionBound}: rejected. That only shows a <em>careless</em> forger fails. Now try “Forge like a pro”, where the forger samples s the same way the signer does — because in this build the signer has no advantage over them.`
         );
       }
     } finally {
@@ -1270,7 +1304,7 @@ function bindEvents(root: HTMLElement): void {
         host.innerHTML = renderVerifyBlock(
           v,
           v.overall
-            ? `😱 <strong>It verified — and no private key was used.</strong> You found this demo's deliberate weak spot: in the illustrative scheme the digest of h·s − c is stored <em>inside the signature</em>, so a forger who samples a short Gaussian s (exactly like the signer) and computes that digest honestly passes both checks. <strong>Real Falcon is immune:</strong> its verifier recomputes the challenge c and checks the fixed equation s₁ + s₂·h = c — the challenge dictates what s must satisfy, and finding a <em>short</em> solution to that equation without the trapdoor basis (f, g) is the SIS-style lattice problem believed hard even for quantum computers. This gap is exactly the distance between a teaching flow and FIPS 206.`
+            ? `😱 <strong>It verified — and no private key was used.</strong> You found this demo's weak spot, and it is worse than "the forger got lucky": <code>forgeShortSignature</code> and <code>signFalconIllustrative</code> run the <em>same</em> sampling loop, because the signer never reads (f, g) either. The digest of h·s − c is stored <em>inside the signature</em>, so anyone who samples a short Gaussian s and computes that digest honestly passes both checks. The signer has no advantage over you. <strong>Real Falcon is immune:</strong> its verifier recomputes the challenge c and checks the fixed equation s₁ + s₂·h = c — the challenge dictates what s must satisfy, and finding a <em>short</em> solution to that equation without the trapdoor basis (f, g) is the SIS-style lattice problem believed hard even for quantum computers. This gap is exactly the distance between a teaching flow and FIPS 206.`
             : 'The sampler happened to exceed the norm bound this time — try again.'
         );
       }
@@ -1293,7 +1327,7 @@ function bindEvents(root: HTMLElement): void {
       host.classList.add(v.overall ? 'ok' : 'bad');
       host.innerHTML = renderVerifyBlock(
         v,
-        `Coefficient s[${index}] was nudged by ±1. The norm barely moved (${v.observedSquaredNorm} vs bound ${v.rejectionBound}), but h·s − c changed, so the digest no longer matches. A signature commits to the <em>exact</em> vector — shortness alone is not enough.`
+        `Coefficient s[${index}] was nudged by ±1. The norm barely moved (${v.observedSquaredNorm} vs demo bound ${v.rejectionBound}), but h·s − c changed, so the digest no longer matches. A signature commits to the <em>exact</em> vector — shortness alone is not enough to survive tampering. Note it is also not enough to establish authorship: see “Forge like a pro”.`
       );
     }
   });
@@ -1352,7 +1386,8 @@ function bindEvents(root: HTMLElement): void {
             </table>
           </div>
           <p class="small-note">
-            Published Falcon-1024 sizes: public key 1,793 B · signature ≈1,280 B compressed (this build uses the fixed 1,330-byte padded format).
+            Published Falcon-1024 sizes: public key 1,793 B · signature ≈1,280 B compressed. This build uses the fixed 1,330-byte padded format, and the
+            ${run.signatureBytes} B measured above is that plus the 2-byte length prefix the <code>falcon-crypto</code> WASM wrapper adds.
             ${illustrativeBytes ? `Compare the illustrative flow's simulated payload above: ${illustrativeBytes} B — same order of magnitude, none of the constant-time engineering.` : 'Sign a message in Panel 3 to compare against the illustrative flow.'}
           </p>
         `;
@@ -1401,14 +1436,14 @@ function bindEvents(root: HTMLElement): void {
       },
       {
         target: '#panel-3',
-        title: 'Sign: hash, then sample short',
-        body: 'The message is hashed with a fresh nonce into a sparse challenge polynomial c, then the signer samples a short vector s. Watch the rejection-sampling loop below: attempts over the norm bound get thrown away.',
+        title: 'Sign: hash, then sample short (but not for c)',
+        body: 'The message is hashed with a fresh nonce into a sparse challenge polynomial c. Real Falcon would now use the trapdoor basis to sample a short s solving s₁ + s₂·h = c. This demo does not: it samples s from a centred Gaussian, ignores c while doing so, never touches the private key, and binds the message afterwards by publishing the digest of u = h·s − c. Watch the loop below — it is a genuine rejection loop, but it rejects on length alone.',
         action: () => root.querySelector<HTMLFormElement>('#sign-form')?.requestSubmit()
       },
       {
         target: '#panel-3',
         title: 'Verify: two checks, both required',
-        body: 'The verifier recomputes the challenge from the message and checks (1) the digest of h·s − c matches and (2) ‖s‖² is under the bound. The norm check is the actual unforgeability witness.',
+        body: 'The verifier recomputes the challenge from the message and checks (1) the digest of h·s − c matches and (2) ‖s‖² is under the bound. In real Falcon the norm check is the unforgeability witness, because there it applies to a solution of the pinned equation s₁ + s₂·h = c. Here it applies to a freely-chosen s, so it proves shortness and nothing more — two steps from now you will forge a signature that passes both.',
         action: () => root.querySelector<HTMLButtonElement>('#verify-btn')?.click()
       },
       {
@@ -1432,7 +1467,7 @@ function bindEvents(root: HTMLElement): void {
       {
         target: '#panel-5',
         title: 'Run the actual attack',
-        body: 'This plays the attacker: observe only timings across 200 signatures and correlate. Against the leaky sampler the leakage meter climbs; against the constant-time sampler it flatlines. Espitau et al. (2017) did this to BLISS for real.',
+        body: 'This plays the attacker: observe only timings across 200 signatures and correlate. Against the leaky sampler the leakage meter climbs; against the constant-time sampler it flatlines. Both timings are computed from a formula rather than clocked — browsers coarsen performance.now() too far to measure 70 ns strata — so this shows the shape of the result, not a rediscovery of it. Espitau et al. (2017) did it to BLISS for real, on real hardware.',
         action: () => root.querySelector<HTMLButtonElement>('#attack-btn')?.click()
       },
       {
