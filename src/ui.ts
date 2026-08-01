@@ -99,6 +99,7 @@ function tableRows(rows: SignatureRow[]): string {
       (r) => `
       <tr>
         <th scope="row">${r.parameterSet}</th>
+        <td>${r.nistCategory}</td>
         <td>${r.publicKeyBytes}</td>
         <td>${r.signatureBytes}</td>
         <td>${r.keygenTimeMs}</td>
@@ -389,7 +390,7 @@ function renderAttack(): string {
     .join('');
   const verdict = attack.done
     ? leaky
-      ? `<strong>Attack succeeded.</strong> Timing explains ${pct}% of the variance in |sample| (r = ${last.correlation.toFixed(3)}), and the timing strata alone recover the sampler's σ ≈ ${sigma?.toFixed(2) ?? '—'} (true σ = 1.20). Espitau et al. turned exactly this signal into full BLISS key recovery with ~40k signatures.`
+      ? `<strong>Attack succeeded.</strong> Timing explains ${pct}% of the variance in |sample| (r = ${last.correlation.toFixed(3)}), and the timing strata alone recover the sampler's σ ≈ ${sigma?.toFixed(2) ?? '—'} (true σ = 1.20). Espitau et al. (CCS 2017) turned exactly this class of sampler leakage into full BLISS key recovery — <em>a single</em> execution of strongSwan's signing routine sufficed via branch tracing, as did one electromagnetic trace on an 8-bit microcontroller. The purely statistical form shown here is slower but still cheap: roughly 450 signatures with a perfect cache channel, under 3 500 in practice (Groot Bruinderink et al., CHES 2016).`
       : `<strong>Attack failed.</strong> After ${last.signaturesObserved} signatures, correlation r = ${last.correlation.toFixed(3)} — statistically nothing${sigma === null ? ', and the timings form a single stratum, so no magnitudes can be read out' : ''}. Constant-time sampling starves the attacker of signal, which is why Falcon §3.8 mandates it.`
     : `Observing… ${last.signaturesObserved} signatures (${last.samplesObserved.toLocaleString()} sampler timings) so far. Correlation r = ${last.correlation.toFixed(3)}.`;
   return `
@@ -536,7 +537,7 @@ export function renderApp(root: HTMLElement): void {
           <aside class="cl-hero-why" aria-label="Why it matters">
             <span class="cl-hero-why-label">WHY IT MATTERS</span>
             <p class="cl-hero-why-text">
-              Falcon's signatures are the most compact of the NIST post-quantum standards, so it fits where certificates and firmware updates are tight. But its Gaussian sampler must run in constant time — a leaky one hands attackers the private key.
+              Falcon produces the most compact signatures of the algorithms NIST selected for post-quantum signatures, so it fits where certificates and firmware updates are tight — but it is not a published standard yet: FIPS 206 (FN-DSA) is still in development, while ML-DSA (FIPS 204) and SLH-DSA (FIPS 205) are final. And Falcon's Gaussian sampler must run in constant time — a leaky one hands attackers the private key.
             </p>
           </aside>
         </header>
@@ -698,10 +699,11 @@ export function renderApp(root: HTMLElement): void {
 
         <div class="table-wrap" aria-label="Security and performance comparison table">
           <table>
-            <caption>NIST Level 1 style sets</caption>
+            <caption>Smallest parameter set of each scheme &mdash; note the NIST categories differ</caption>
             <thead>
               <tr>
                 <th>Set</th>
+                <th>NIST category</th>
                 <th>PK (B)</th>
                 <th>Sig (B)</th>
                 <th>Keygen (ms)</th>
@@ -713,13 +715,15 @@ export function renderApp(root: HTMLElement): void {
             </thead>
             <tbody>${tableRows(comparisonRowsLevel1)}</tbody>
           </table>
+          <p class="small-note">These are each scheme's smallest standard parameter set, not a like-for-like security comparison. Falcon-512 and SLH-DSA-128s claim NIST category 1; the smallest ML-DSA set, ML-DSA-44, claims category 2 (FIPS 204). ML-DSA therefore has no category-1 set to put in this row, so it is carrying a slightly higher security target than the other two.</p>
         </div>
         <div class="table-wrap" aria-label="Level 5 comparison table">
           <table>
-            <caption>NIST Level 5 style sets</caption>
+            <caption>NIST Category 5 sets</caption>
             <thead>
               <tr>
                 <th>Set</th>
+                <th>NIST category</th>
                 <th>PK (B)</th>
                 <th>Sig (B)</th>
                 <th>Keygen (ms)</th>
@@ -779,7 +783,7 @@ export function renderApp(root: HTMLElement): void {
           ${renderAttack()}
         </div>
         <p class="warning" role="note">
-          <strong>Reference:</strong> Espitau, Fouque, Gérard &amp; Tibouchi (2017), "Side-Channel Attacks on BLISS Lattice-Based Signatures" — practical key recovery via Gaussian-sampler timing. Falcon spec §3.8 mandates constant-time sampling for production implementations.
+          <strong>References:</strong> Espitau, Fouque, Gérard &amp; Tibouchi, "Side-Channel Attacks on BLISS Lattice-Based Signatures" (ACM CCS 2017, ePrint 2017/505) — full key recovery from a single strongSwan signing execution via branch tracing, and from a single electromagnetic trace on an 8-bit microcontroller. Groot Bruinderink, Hülsing, Lange &amp; Yarom, "Flush, Gauss, and Reload" (CHES 2016, ePrint 2016/300) — the statistical variant modelled here, recovering a BLISS key from about 450 signatures with a perfect side-channel and under 3 500 in practice. Falcon spec §3.8 mandates constant-time sampling for production implementations.
         </p>
 
         <h3>When to choose each algorithm</h3>

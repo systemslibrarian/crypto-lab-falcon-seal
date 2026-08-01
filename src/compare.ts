@@ -1,5 +1,13 @@
 export type SignatureRow = {
   parameterSet: string;
+  /**
+   * The NIST security strength category the scheme's own specification claims
+   * for this parameter set. These do NOT line up across schemes: the smallest
+   * ML-DSA set is category 2, not category 1 (FIPS 204), while Falcon-512 and
+   * SLH-DSA-128s are category 1. Never present the three smallest sets as if
+   * they sat at the same security level.
+   */
+  nistCategory: string;
   publicKeyBytes: number;
   signatureBytes: number;
   keygenTimeMs: number;
@@ -13,6 +21,7 @@ export type SignatureRow = {
 export const comparisonRowsLevel1: SignatureRow[] = [
   {
     parameterSet: 'Falcon-512',
+    nistCategory: '1',
     publicKeyBytes: 897,
     signatureBytes: 666,
     keygenTimeMs: 8.1,
@@ -24,6 +33,7 @@ export const comparisonRowsLevel1: SignatureRow[] = [
   },
   {
     parameterSet: 'ML-DSA-44',
+    nistCategory: '2',
     publicKeyBytes: 1312,
     signatureBytes: 2420,
     keygenTimeMs: 0.8,
@@ -35,6 +45,7 @@ export const comparisonRowsLevel1: SignatureRow[] = [
   },
   {
     parameterSet: 'SLH-DSA-128s',
+    nistCategory: '1',
     publicKeyBytes: 32,
     signatureBytes: 7856,
     keygenTimeMs: 0.2,
@@ -49,6 +60,7 @@ export const comparisonRowsLevel1: SignatureRow[] = [
 export const comparisonRowsLevel5: SignatureRow[] = [
   {
     parameterSet: 'Falcon-1024',
+    nistCategory: '5',
     publicKeyBytes: 1793,
     signatureBytes: 1280,
     keygenTimeMs: 31,
@@ -60,6 +72,7 @@ export const comparisonRowsLevel5: SignatureRow[] = [
   },
   {
     parameterSet: 'ML-DSA-87',
+    nistCategory: '5',
     publicKeyBytes: 2592,
     signatureBytes: 4627,
     keygenTimeMs: 2.0,
@@ -71,6 +84,7 @@ export const comparisonRowsLevel5: SignatureRow[] = [
   },
   {
     parameterSet: 'SLH-DSA-256s',
+    nistCategory: '5',
     publicKeyBytes: 64,
     signatureBytes: 29792,
     keygenTimeMs: 0.3,
