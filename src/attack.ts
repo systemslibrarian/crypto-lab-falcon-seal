@@ -1,5 +1,5 @@
 // Timing-attack teaching aid. Plays the attacker's side of Espitau, Fouque,
-// Gérard & Rossi (2017): observe only per-sample timings from many signatures,
+// Gérard & Tibouchi (2017): observe only per-sample timings from many signatures,
 // correlate them with the (secret) sampled magnitudes, and watch how much of the
 // sampler's output distribution leaks. Against a constant-time sampler the same
 // analysis flatlines.

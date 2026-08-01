@@ -84,7 +84,7 @@ export const comparisonRowsLevel5: SignatureRow[] = [
 
 export const references = [
   'Falcon specification v1.2: Fouque, Kirchner, Tibouchi, Wallet, et al.',
-  'Ducas & Prest (2016): Fast Fourier Sampling over q-ary lattices.',
+  'Ducas & Prest (2016): Fast Fourier Orthogonalization (ISSAC 2016) — the algorithm behind Falcon Fast Fourier Sampling.',
   'NIST FIPS 204 (ML-DSA), FIPS 205 (SLH-DSA), FIPS 206 related PQ signature context.',
   'Timing numbers are indicative reference-software style measurements and hardware-dependent.'
 ];

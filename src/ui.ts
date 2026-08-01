@@ -488,7 +488,7 @@ const quizzes: Record<string, Quiz> = {
       { text: 'Constant-time code is required by JavaScript engines.' }
     ],
     explanation:
-      'Espitau, Fouque, Gérard, Rossi (2017) demonstrated practical key recovery on BLISS via timing of the Gaussian sampler. Falcon faces an analogous risk — see Falcon spec §3.8.'
+      'Espitau, Fouque, Gérard, Tibouchi (2017) demonstrated practical key recovery on BLISS via timing of the Gaussian sampler. Falcon faces an analogous risk — see Falcon spec §3.8.'
   }
 };
 
@@ -624,7 +624,7 @@ export function renderApp(root: HTMLElement): void {
 
         <div class="actions" aria-label="Key generation controls">
           <button id="keygen-btn" class="btn" type="button" aria-label="Generate ${set.name} keypair">Generate ${set.name} keypair</button>
-          <span class="status-chip" aria-label="NIST standard status">NIST PQC Standard (Alternate to ML-DSA)</span>
+          <span class="status-chip" aria-label="NIST standard status">Selected by NIST — draft FIPS 206 (FN-DSA), alternate to ML-DSA</span>
         </div>
         <div id="key-info" class="output" aria-live="polite" aria-label="Generated key information"></div>
         ${renderQuiz(quizzes.q2)}
@@ -779,7 +779,7 @@ export function renderApp(root: HTMLElement): void {
           ${renderAttack()}
         </div>
         <p class="warning" role="note">
-          <strong>Reference:</strong> Espitau, Fouque, Gérard &amp; Rossi (2017), "Side-Channel Attacks on BLISS Lattice-Based Signatures" — practical key recovery via Gaussian-sampler timing. Falcon spec §3.8 mandates constant-time sampling for production implementations.
+          <strong>Reference:</strong> Espitau, Fouque, Gérard &amp; Tibouchi (2017), "Side-Channel Attacks on BLISS Lattice-Based Signatures" — practical key recovery via Gaussian-sampler timing. Falcon spec §3.8 mandates constant-time sampling for production implementations.
         </p>
 
         <h3>When to choose each algorithm</h3>

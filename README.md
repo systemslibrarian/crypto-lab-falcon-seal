@@ -73,7 +73,7 @@ npm run build && npm run test:e2e
 ## References
 
 - Falcon: Fast-Fourier Lattice-Based Compact Signatures over NTRU (official specification document, v1.2)
-- Ducas, Prest (2016), Fast Fourier sampling over q-ary lattices
+- Ducas, Prest (2016), Fast Fourier Orthogonalization (ISSAC 2016) — the basis of Falcon's Fast Fourier Sampling
 - NIST FIPS 206 and the NIST PQC signature standards context (including ML-DSA and SLH-DSA publications)
 
 ---
