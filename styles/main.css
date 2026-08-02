@@ -9,6 +9,7 @@
   --ok: #0a6b3c;
   --warn: #7c5200;
   --border: #cad7cc;
+  --control-border: #687f70;
   --focus: #002a8f;
   --shadow: 0 18px 40px rgba(0, 45, 33, 0.12);
   --font-main: "Space Grotesk", "Segoe UI", sans-serif;
@@ -27,6 +28,7 @@
   --ok: #6cf6b6;
   --warn: #ffd17b;
   --border: #2b4a3a;
+  --control-border: #668874;
   --focus: #8db5ff;
   --shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
   color-scheme: dark;
@@ -240,7 +242,7 @@ textarea {
   width: 100%;
   padding: 10px;
   border-radius: 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   background-color: var(--bg);
   color: var(--text);
   min-height: 130px;
