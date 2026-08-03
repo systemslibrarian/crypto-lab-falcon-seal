@@ -229,12 +229,20 @@ export async function generateFalconKeyPair(set: FalconParameterSet): Promise<Fa
  * the forgery succeeds.
  *
  * Real Falcon signs by using the full trapdoor basis (f, g, F, G) to sample a
- * short (s₁, s₂) satisfying the fixed equation s₁ + s₂·h = c. Implementing that
- * here is out of reach for this build, not merely unimplemented: `generateFalconKeyPair`
- * produces only (f, g, h) and never solves the NTRU equation f·G − g·F = q, so
- * there is no (F, G) to sample against; and fast-Fourier sampling additionally
- * needs an LDL tree over R = Z[x]/(xⁿ+1) in floating point, where this build has
- * only an integer NTT mod q. Two substantial pieces of machinery, neither present.
+ * short (s₁, s₂) satisfying the fixed equation s₁ + s₂·h = c. None of that
+ * happens at THESE parameters: `generateFalconKeyPair` produces only (f, g, h)
+ * and never solves the NTRU equation f·G − g·F = q, so there is no (F, G) to
+ * sample against; and fast-Fourier sampling additionally needs an LDL tree over
+ * R = Z[x]/(xⁿ+1) in floating point, where this module has only an integer NTT
+ * mod q.
+ *
+ * `src/trapdoor.ts` (Panel 7) takes the other trade. It drops n from 512 to 8,
+ * solves f·G − g·F = q exactly in BigInt arithmetic for the completion (F, G),
+ * and signs by Babai round-off against the full 2n-row basis, verifying with
+ * Falcon's real equation s₁ + s₂·h ≡ c (mod q). That signer genuinely cannot
+ * work without the private key, and the page measures the difference. So the
+ * mechanism is no longer absent from this demo — it is absent from this
+ * function, at these parameters, and the page now says which is which.
  *
  * What this flow does teach honestly: the hash-to-challenge step, the shape of a
  * rejection loop, the fact that verification is two independent checks, that

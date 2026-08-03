@@ -48,8 +48,22 @@ async function textareaBoundaryRatio(page: Page): Promise<number> {
   });
 }
 
+// Panel 7 renders its tables only after a run, and an empty <output> is not the
+// DOM that reaches a learner. Drive the whole panel before scanning.
+async function runTrapdoorPanel(page: Page): Promise<void> {
+  await page.locator('#td-keygen').click();
+  await expect(page.locator('#td-key')).toContainText('Key generated', { timeout: 60_000 });
+  await page.locator('#td-sign').click();
+  await expect(page.locator('#td-sign-out')).toContainText('The signature', { timeout: 60_000 });
+  await page.locator('#td-forge').click();
+  await expect(page.locator('#td-sign-out')).toContainText('forged signature', { timeout: 60_000 });
+  await page.locator('#td-half').click();
+  await expect(page.locator('#td-compare')).toContainText('No private key at all', { timeout: 60_000 });
+}
+
 test('no WCAG A/AA violations in dark theme', async ({ page }) => {
   await page.goto('.');
+  await runTrapdoorPanel(page);
   await openAllDetails(page);
   expect(await textareaBoundaryRatio(page)).toBeGreaterThanOrEqual(3);
   await scan(page);
@@ -57,6 +71,7 @@ test('no WCAG A/AA violations in dark theme', async ({ page }) => {
 
 test('no WCAG A/AA violations in light theme', async ({ page }) => {
   await page.goto('.');
+  await runTrapdoorPanel(page);
   await page.locator('#cl-theme-toggle').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await openAllDetails(page);

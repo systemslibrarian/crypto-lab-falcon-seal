@@ -29,6 +29,7 @@ import {
 import { loadQuizState, resetQuizState, saveQuizAnswer } from './quiz-state';
 import { runRealFalcon } from './real-falcon';
 import { startTour } from './tour';
+import { trapdoorPanelHtml, wireTrapdoorPanel } from './trapdoor-panel';
 
 type UIState = {
   parameterSetName: FalconParameterSetName;
@@ -451,7 +452,7 @@ const quizzes: Record<string, Quiz> = {
       { text: 'The hash function used to bind the message.' }
     ],
     explanation:
-      'The private key is the short basis (f, g), extended by keygen to the full basis (f, g, F, G). Without it, sampling a short vector that also solves the challenge equation s₁ + s₂·h = c is infeasible — that asymmetry is what makes signing hard for everyone except the key holder. Note the qualifier: sampling a short vector on its own is easy. This demo does not implement the trapdoor at all — its signing path never reads (f, g) — which is why the “Forge like a pro” button in Panel 3 succeeds.'
+      'The private key is the short basis (f, g), extended by keygen to the full basis (f, g, F, G). Without it, sampling a short vector that also solves the challenge equation s₁ + s₂·h = c is infeasible — that asymmetry is what makes signing hard for everyone except the key holder. Note the qualifier: sampling a short vector on its own is easy. The signing path in Panel 3 does not implement the trapdoor at all — it never reads (f, g) — which is why the “Forge like a pro” button there succeeds. Panel 7 does implement it, at n = 8: it solves f·G − g·F = q for the completion and signs against the full basis, and the same forgery fails there.'
   },
   q3: {
     id: 'q3',
@@ -467,7 +468,7 @@ const quizzes: Record<string, Quiz> = {
       { text: 'The demo’s Gaussian sampler is miscalibrated and produces vectors that are too long.' }
     ],
     explanation:
-      'Sampling a short Gaussian vector is easy — anyone can do it, which is what the forge button does. What is hard is sampling a short vector that also satisfies s₁ + s₂·h = c for a challenge you do not control, and only the trapdoor basis makes that possible. This build never enforces that equation during signing, so its norm check is a shortness test rather than an unforgeability witness. An earlier version of this quiz marked “only a holder of the short basis can produce a short s” as the right answer, which the forge button on this very panel disproves.'
+      'Sampling a short Gaussian vector is easy — anyone can do it, which is what the forge button does. What is hard is sampling a short vector that also satisfies s₁ + s₂·h = c for a challenge you do not control, and only the trapdoor basis makes that possible. Panel 3 never enforces that equation during signing, so its norm check is a shortness test rather than an unforgeability witness. An earlier version of this quiz marked “only a holder of the short basis can produce a short s” as the right answer, which the forge button on this very panel disproves — for Panel 3. Panel 7 enforces the equation and the bound together at n = 8, and there the same claim is true and measured.'
   },
   q4: {
     id: 'q4',
@@ -610,11 +611,11 @@ export function renderApp(root: HTMLElement): void {
       <section class="panel" id="panel-2" aria-labelledby="p2-title">
         <h2 id="p2-title">Panel 2 — Falcon Key Generation</h2>
         <p class="warning" role="note" aria-label="Disclosure note">
-          <strong>Illustrative — not production Falcon.</strong> This demo computes a <em>real</em> NTRU public key <code>h = g · f⁻¹ mod (q, x<sup>n</sup>+1)</code> via negacyclic NTT. The signing flow, however, does not merely swap in an educational sampler — it does not use the trapdoor at all. Keygen stops at (f, g, h) and never solves the NTRU equation f·G − g·F = q, so the completing pair (F, G) does not exist in this build, and Panel 3's signer never reads (f, g). See the warnings there.
+          <strong>Illustrative — not production Falcon.</strong> This demo computes a <em>real</em> NTRU public key <code>h = g · f⁻¹ mod (q, x<sup>n</sup>+1)</code> via negacyclic NTT. The signing flow here, however, does not merely swap in an educational sampler — it does not use the trapdoor at all. This keygen stops at (f, g, h) and never solves the NTRU equation f·G − g·F = q, so the completing pair (F, G) does not exist at these parameters, and Panel 3's signer never reads (f, g). See the warnings there — and see <a href="#panel-7">Panel 7</a>, which does solve that equation and does sign with the trapdoor, at n = 8 instead of 512.
         </p>
         <p><strong>Private key:</strong> short polynomial pair (f, g) with coefficients in {−1, 0, +1}, forming a short basis of the NTRU lattice. Real Falcon extends this to the full basis (f, g, F, G) with an NTRU solve; this build does not, and its (f, g) are ternary rather than sampled at Falcon's σ<sub>f,g</sub>.</p>
         <p><strong>Public key:</strong> h = g · f⁻¹ mod q in the ring R<sub>q</sub> = Z<sub>q</sub>[x]/(x<sup>n</sup>+1). Computed here via NTT-based polynomial inversion (q = 12289 is NTT-friendly: q−1 = 12288 is divisible by 2n for both n=512 and n=1024). This part is real.</p>
-        <p><strong>Trapdoor:</strong> in Falcon, the short basis enables Gram-Schmidt orthogonalization (as an LDL tree over the ring, in floating point), which is what makes Fast Fourier Sampling possible during signing. This build has an integer NTT mod q and no float ring arithmetic, so it has none of that machinery — the trapdoor is described on this page but not implemented anywhere in it.</p>
+        <p><strong>Trapdoor:</strong> in Falcon, the short basis enables Gram-Schmidt orthogonalization (as an LDL tree over the ring, in floating point), which is what makes Fast Fourier Sampling possible during signing. Panels 1–3 have an integer NTT mod q and no float ring arithmetic, so they have none of that machinery. <a href="#panel-7">Panel 7</a> takes the other route: it drops to n = 8, solves the NTRU equation exactly in BigInt arithmetic for the completion (F, G), and signs by Babai round-off against the full basis — a real trapdoor, and a real dependence on the private key, with round-off standing in for Fast Fourier Sampling and labelled as such.</p>
 
         <div class="key-size-table" aria-label="Key and signature size comparison">
           <table>
@@ -849,6 +850,8 @@ export function renderApp(root: HTMLElement): void {
           from the spec averages ≈1,280 B — all three are real numbers describing the same signature at different layers.
         </p>
       </section>
+
+${trapdoorPanelHtml()}
 
       <section class="panel" aria-labelledby="refs-title">
         <h2 id="refs-title">References and Notes</h2>
@@ -1304,7 +1307,7 @@ function bindEvents(root: HTMLElement): void {
         host.innerHTML = renderVerifyBlock(
           v,
           v.overall
-            ? `😱 <strong>It verified — and no private key was used.</strong> You found this demo's weak spot, and it is worse than "the forger got lucky": <code>forgeShortSignature</code> and <code>signFalconIllustrative</code> run the <em>same</em> sampling loop, because the signer never reads (f, g) either. The digest of h·s − c is stored <em>inside the signature</em>, so anyone who samples a short Gaussian s and computes that digest honestly passes both checks. The signer has no advantage over you. <strong>Real Falcon is immune:</strong> its verifier recomputes the challenge c and checks the fixed equation s₁ + s₂·h = c — the challenge dictates what s must satisfy, and finding a <em>short</em> solution to that equation without the trapdoor basis (f, g) is the SIS-style lattice problem believed hard even for quantum computers. This gap is exactly the distance between a teaching flow and FIPS 206.`
+            ? `😱 <strong>It verified — and no private key was used.</strong> You found this demo's weak spot, and it is worse than "the forger got lucky": <code>forgeShortSignature</code> and <code>signFalconIllustrative</code> run the <em>same</em> sampling loop, because the signer never reads (f, g) either. The digest of h·s − c is stored <em>inside the signature</em>, so anyone who samples a short Gaussian s and computes that digest honestly passes both checks. The signer has no advantage over you. <strong>Real Falcon is immune:</strong> its verifier recomputes the challenge c and checks the fixed equation s₁ + s₂·h = c — the challenge dictates what s must satisfy, and finding a <em>short</em> solution to that equation without the trapdoor basis (f, g) is the SIS-style lattice problem believed hard even for quantum computers. This gap is exactly the distance between a teaching flow and FIPS 206 — and <a href="#panel-7">Panel 7</a> closes it at toy scale: there the verifier checks s₁ + s₂·h ≡ c, the same forgery satisfies that equation and is rejected on the norm, and a signer holding only (f, g) does no better than one holding nothing.`
             : 'The sampler happened to exceed the norm bound this time — try again.'
         );
       }
@@ -1403,6 +1406,9 @@ function bindEvents(root: HTMLElement): void {
     }
   });
 
+  // Real trapdoor signing (Panel 7).
+  wireTrapdoorPanel(root, () => state.message || 'Falcon');
+
   // Guided tour.
   root.querySelector<HTMLButtonElement>('#tour-btn')?.addEventListener('click', () => {
     const setLatticeMode = (mode: 'private' | 'public') => {
@@ -1437,7 +1443,7 @@ function bindEvents(root: HTMLElement): void {
       {
         target: '#panel-3',
         title: 'Sign: hash, then sample short (but not for c)',
-        body: 'The message is hashed with a fresh nonce into a sparse challenge polynomial c. Real Falcon would now use the trapdoor basis to sample a short s solving s₁ + s₂·h = c. This demo does not: it samples s from a centred Gaussian, ignores c while doing so, never touches the private key, and binds the message afterwards by publishing the digest of u = h·s − c. Watch the loop below — it is a genuine rejection loop, but it rejects on length alone.',
+        body: 'The message is hashed with a fresh nonce into a sparse challenge polynomial c. Real Falcon would now use the trapdoor basis to sample a short s solving s₁ + s₂·h = c. This panel does not: it samples s from a centred Gaussian, ignores c while doing so, never touches the private key, and binds the message afterwards by publishing the digest of u = h·s − c. Panel 7 does it the real way, at n = 8. Watch the loop below — it is a genuine rejection loop, but it rejects on length alone.',
         action: () => root.querySelector<HTMLFormElement>('#sign-form')?.requestSubmit()
       },
       {
