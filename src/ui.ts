@@ -91,7 +91,7 @@ function currentSet(): FalconParameterSet {
 
 function bytesBar(value: number, max: number): string {
   const pct = Math.max(4, Math.round((value / max) * 100));
-  return `<div class="bar-wrap" aria-label="bar for ${value} bytes"><div class="bar" style="width:${pct}%"></div><span>${value} B</span></div>`;
+  return `<div class="bar-wrap"><div class="bar" style="width:${pct}%"></div><span>${value} B</span></div>`;
 }
 
 function tableRows(rows: SignatureRow[]): string {
@@ -199,7 +199,7 @@ function latticeSvg(): string {
       ${sigOverlay}
       ${babaiOverlay}
     </svg>
-    <p class="small-note" aria-live="polite" aria-label="Lattice visualization legend">${caption}</p>
+    <p class="small-note" aria-live="polite">${caption}</p>
   `;
 }
 
@@ -216,7 +216,7 @@ function latticeControls(): string {
         <span>Public long basis <small>(same lattice — what an attacker has)</small></span>
       </label>
     </fieldset>
-    <div class="actions" aria-label="Lattice playground actions">
+    <div class="actions">
       <button id="lattice-random-btn" class="btn alt" type="button" aria-label="Place a random target on the lattice">Place random target</button>
       <button id="lattice-clear-btn" class="btn alt" type="button" aria-label="Clear the lattice target">Clear target</button>
     </div>
@@ -229,7 +229,7 @@ function renderComparisonBars(): string {
   return rows
     .map(
       (r) => `
-      <div class="bar-row" aria-label="Signature size bar for ${r.parameterSet}">
+      <div class="bar-row">
         <div class="bar-title">${r.parameterSet}</div>
         ${bytesBar(r.signatureBytes, max)}
       </div>
@@ -255,7 +255,7 @@ function renderVisceralSize(): string {
       const sigPct = (it.sigBytes / max) * 100;
       const ratio = msgBytes === 0 ? '∞' : (it.sigBytes / Math.max(1, msgBytes)).toFixed(1);
       return `
-        <div class="vsize-row" aria-label="Size comparison for ${it.label}">
+        <div class="vsize-row">
           <div class="vsize-title">${it.label} <span class="vsize-ratio">sig is ${ratio}× your message</span></div>
           <div class="vsize-strip">
             <div class="vsize-msg" style="width:${msgPct}%" title="${msgBytes} B message"></div>
@@ -285,7 +285,7 @@ function renderTimingHistogram(samples: TimingSample[]): string {
       const height = (count / peak) * 100;
       const lo = Math.round(min + (width * i) / bucketCount);
       const hi = Math.round(min + (width * (i + 1)) / bucketCount);
-      return `<div class="histo-col" style="height:${height.toFixed(1)}%" title="${lo}–${hi} ns · ${count} samples" aria-label="${lo} to ${hi} nanoseconds: ${count} samples"></div>`;
+      return `<div class="histo-col" style="height:${height.toFixed(1)}%" title="${lo}–${hi} ns · ${count} samples"></div>`;
     })
     .join('');
   const verdict =
@@ -293,7 +293,7 @@ function renderTimingHistogram(samples: TimingSample[]): string {
       ? `Wide spread (${min}–${max} ns, modelled — see the warning above). Timing correlates with |sample| by construction, standing in for a real sampler that short-circuits early. Against such a sampler an attacker reading these timings can recover bits of the secret distribution: the Espitau et al. 2017 attack vector.`
       : `Tight cluster (${min}–${max} ns, modelled — see the warning above). Time is made independent of the sampled value, standing in for a fixed table walk. This is what Falcon §3.8 requires.`;
   return `
-    <div class="histo" aria-label="Per-sample timing histogram">${cols}</div>
+    <div class="histo" role="img" aria-label="Per-sample timing histogram">${cols}</div>
     <p class="small-note">${verdict}</p>
   `;
 }
@@ -318,7 +318,7 @@ function renderChallengeStrip(): string {
   }
   const hashHexShort = `${sig.hashHex.slice(0, 24)}…${sig.hashHex.slice(-24)}`;
   return `
-    <div class="hash-challenge" aria-label="Hash to challenge polynomial">
+    <div class="hash-challenge">
       <div class="hash-row"><span class="label">SHA-256(message ‖ nonce ‖ h):</span> <code class="mono">${hashHexShort}</code></div>
       <div class="label">Challenge polynomial c (n=${sig.n}, weight=40, ±1 sparse):</div>
       <div class="c-strip" role="img" aria-label="Sparse challenge polynomial coefficients">${cells.join('')}</div>
@@ -348,7 +348,7 @@ function renderAttempts(): string {
     .join('');
   const set = PARAMETER_SETS[result.signature.parameterSetName];
   return `
-    <div class="attempts-block" aria-label="Rejection sampling attempts">
+    <div class="attempts-block">
       <div class="attempts-header">Rejection-sampling loop · bound ‖s‖² ≤ ${bound} <span class="fidelity-tag">Demo constant</span></div>
       <ol class="attempts">${rows}</ol>
       <p class="small-note">
@@ -368,7 +368,7 @@ function renderVerifyBlock(v: VerifyResult, note?: string): string {
     ? '<span class="badge ok-badge">Verified</span>'
     : '<span class="badge bad-badge">Rejected</span>';
   return `
-    <div class="verify-block" aria-label="Verification result">
+    <div class="verify-block">
       <div class="verify-row"><span>${normIcon}</span><span><strong>Norm check:</strong> ‖s‖² = ${v.observedSquaredNorm} ≤ ${v.rejectionBound} (demo constant, not Falcon's β²)? ${v.normCheckOk ? 'yes' : 'no'}</span></div>
       <div class="verify-row"><span>${hashIcon}</span><span><strong>Recompute check:</strong> hash(h·s − c) matches stored digest? ${v.recomputeCheckOk ? 'yes' : 'no'}</span></div>
       <div class="verify-row">${overall}</div>
@@ -410,7 +410,7 @@ function renderAttack(): string {
         </div>
         <span class="attack-meter-pct mono">${pct}%</span>
       </div>
-      <div class="attack-spark" aria-label="Leakage versus number of observed signatures">${sparkline}</div>
+      <div class="attack-spark" role="img" aria-label="Leakage versus number of observed signatures">${sparkline}</div>
       <p class="small-note">${verdict}</p>
     </div>
   `;
@@ -513,7 +513,7 @@ function renderQuiz(q: Quiz): string {
     )
     .join('');
   return `
-    <div class="quiz" data-quiz-id="${q.id}" aria-label="Comprehension check">
+    <div class="quiz" data-quiz-id="${q.id}">
       <div class="quiz-prompt"><strong>Check your understanding:</strong> ${escapeHtml(q.prompt)}</div>
       <div class="quiz-options">${opts}</div>
       <div class="quiz-feedback" data-quiz-feedback="${q.id}"></div>
@@ -526,8 +526,8 @@ export function renderApp(root: HTMLElement): void {
   const set = currentSet();
 
   root.innerHTML = `
-    <div class="page" aria-label="Falcon Seal page wrapper">
-      <div class="hero" aria-label="Header">
+    <div class="page">
+      <div class="hero">
         <button
           id="theme-toggle"
           class="theme-toggle"
@@ -554,7 +554,7 @@ export function renderApp(root: HTMLElement): void {
         <p class="subtitle">
           Compact lattice signatures over NTRU lattices, with honest implementation caveats.
         </p>
-        <div class="chip-row" aria-label="Primitive chips">
+        <div class="chip-row">
           <span class="chip">Falcon-512</span>
           <span class="chip">Falcon-1024</span>
           <span class="chip">NTRU Lattice</span>
@@ -571,10 +571,10 @@ export function renderApp(root: HTMLElement): void {
             <span>Falcon-1024 <small>(NIST L5, n=1024, sig 1280 B)</small></span>
           </label>
         </fieldset>
-        <div class="hero-actions" aria-label="Header actions">
+        <div class="hero-actions">
           <button id="tour-btn" class="btn" type="button" aria-label="Start the guided tour">▶ Walk me through it</button>
           <a class="badge" href="https://github.com/systemslibrarian/crypto-lab-falcon-seal" target="_blank" rel="noreferrer" aria-label="Open GitHub repository">GitHub</a>
-          <span id="quiz-score" class="chip" aria-live="polite" aria-label="Quiz score"></span>
+          <span id="quiz-score" class="chip" role="status"></span>
         </div>
         <p class="small-note">
           Naming note: NIST will standardize this design as <strong>FN-DSA</strong> (FFT-over-NTRU-lattice Digital Signature Algorithm) in <strong>FIPS 206 (in development)</strong> — the same dual naming ML-DSA/Dilithium and SLH-DSA/SPHINCS+ went through. FIPS 206 has not been drafted yet, so FN-DSA is a selected-and-named algorithm rather than a published standard.
@@ -599,10 +599,10 @@ export function renderApp(root: HTMLElement): void {
         <p>
           Signing is a <em>closest-vector</em> task: hash the message to a target point, then find the lattice point nearest it. Place a target below and decode it with each basis. The private basis (short, near-orthogonal) rounds to the right answer; the public basis (long, skewed — <em>the same lattice</em>) misses for about half of all targets. That asymmetry is the entire trapdoor.
         </p>
-        <div id="lattice-controls" aria-label="Lattice playground controls">
+        <div id="lattice-controls">
           ${latticeControls()}
         </div>
-        <div id="lattice-viz" class="viz" aria-label="Lattice visualization">
+        <div id="lattice-viz" class="viz" role="group" tabindex="0" aria-label="Lattice visualization">
           ${latticeSvg()}
         </div>
         ${renderQuiz(quizzes.q1)}
@@ -617,7 +617,7 @@ export function renderApp(root: HTMLElement): void {
         <p><strong>Public key:</strong> h = g · f⁻¹ mod q in the ring R<sub>q</sub> = Z<sub>q</sub>[x]/(x<sup>n</sup>+1). Computed here via NTT-based polynomial inversion (q = 12289 is NTT-friendly: q−1 = 12288 is divisible by 2n for both n=512 and n=1024). This part is real.</p>
         <p><strong>Trapdoor:</strong> in Falcon, the short basis enables Gram-Schmidt orthogonalization (as an LDL tree over the ring, in floating point), which is what makes Fast Fourier Sampling possible during signing. Panels 1–3 have an integer NTT mod q and no float ring arithmetic, so they have none of that machinery. <a href="#panel-7">Panel 7</a> takes the other route: it drops to n = 8, solves the NTRU equation exactly in BigInt arithmetic for the completion (F, G), and signs by Babai round-off against the full basis — a real trapdoor, and a real dependence on the private key, with round-off standing in for Fast Fourier Sampling and labelled as such.</p>
 
-        <div class="key-size-table" aria-label="Key and signature size comparison">
+        <div class="key-size-table" role="group" tabindex="0" aria-label="Key and signature size comparison">
           <table>
             <caption>Key and signature sizes (published values)</caption>
             <thead>
@@ -632,11 +632,11 @@ export function renderApp(root: HTMLElement): void {
           </table>
         </div>
 
-        <div class="actions" aria-label="Key generation controls">
+        <div class="actions">
           <button id="keygen-btn" class="btn" type="button" aria-label="Generate ${set.name} keypair">Generate ${set.name} keypair</button>
-          <span class="status-chip" aria-label="NIST standard status">Selected by NIST — FIPS 206 (FN-DSA) in development, alternate to ML-DSA</span>
+          <span class="status-chip">Selected by NIST — FIPS 206 (FN-DSA) in development, alternate to ML-DSA</span>
         </div>
-        <div id="key-info" class="output" aria-live="polite" aria-label="Generated key information"></div>
+        <div id="key-info" class="output" aria-live="polite"></div>
         ${renderQuiz(quizzes.q2)}
       </section>
 
@@ -645,13 +645,13 @@ export function renderApp(root: HTMLElement): void {
         <form id="sign-form" class="form" aria-label="Sign and verify form">
           <label for="message-input">Message</label>
           <textarea id="message-input" rows="5" required aria-label="Message to sign">${escapeHtml(state.message)}</textarea>
-          <div class="actions" aria-label="Signing actions">
+          <div class="actions">
             <button id="sign-btn" class="btn" type="submit" aria-label="Sign message with illustrative Falcon flow">Sign</button>
             <button id="verify-btn" class="btn alt" type="button" aria-label="Verify current signature">Verify</button>
             <button id="tamper-btn" class="btn alt" type="button" aria-label="Tamper message and verify failure">Tamper test</button>
             <button id="copy-btn" class="btn alt" type="button" aria-label="Copy signature as JSON">Copy as JSON</button>
             <button id="share-btn" class="btn alt" type="button" aria-label="Copy a shareable link that preloads this message">Copy share link</button>
-            <span class="status-chip recommended" aria-label="Recommendation status">RECOMMENDED (size-constrained environments)</span>
+            <span class="status-chip recommended">RECOMMENDED (size-constrained environments)</span>
           </div>
         </form>
         <p>
@@ -666,21 +666,21 @@ export function renderApp(root: HTMLElement): void {
         <p class="warning" role="note" aria-label="Implementation warning">
           <strong>Implementation warning:</strong> the Gaussian sampler <em>must</em> be constant-time in production — see Panel 5 for an interactive demonstration of why.
         </p>
-        <div id="sign-info" class="output mono" aria-live="polite" aria-label="Signature details"></div>
-        <div id="attempts-info" class="output" aria-label="Rejection sampling attempts"></div>
-        <div id="challenge-info" class="output" aria-label="Hash to challenge polynomial"></div>
-        <div id="verify-info" class="output" aria-live="assertive" aria-label="Verification result"></div>
+        <div id="sign-info" class="output mono" aria-live="polite"></div>
+        <div id="attempts-info" class="output"></div>
+        <div id="challenge-info" class="output"></div>
+        <div id="verify-info" class="output" aria-live="assertive"></div>
 
         <h3>Forgery playground</h3>
         <p>
           In real Falcon, a signature must be a <strong>short</strong> vector that <strong>satisfies the verification equation</strong> s₁ + s₂·h = c — and finding a short solution without the trapdoor is the hard lattice problem. Probe both requirements, and then find this demo's own weak spot:
         </p>
-        <div class="actions" aria-label="Forgery actions">
+        <div class="actions">
           <button id="forge-btn" class="btn alt" type="button" aria-label="Attempt a forgery with a random signature vector">Try to forge (random s)</button>
           <button id="flip-btn" class="btn alt" type="button" aria-label="Flip one coefficient of the current signature and re-verify">Flip one coefficient of s</button>
           <button id="forge-pro-btn" class="btn alt" type="button" aria-label="Forge with a short Gaussian vector and expose the toy scheme's weakness">Forge like a pro (short s)</button>
         </div>
-        <div id="forge-info" class="output" aria-live="polite" aria-label="Forgery attempt result"></div>
+        <div id="forge-info" class="output" aria-live="polite"></div>
 
         <h3>Verify a pasted signature</h3>
         <details class="paste-details">
@@ -692,7 +692,7 @@ export function renderApp(root: HTMLElement): void {
           <div class="actions">
             <button id="paste-verify-btn" class="btn alt" type="button" aria-label="Verify the pasted signature JSON">Verify pasted signature</button>
           </div>
-          <div id="paste-info" class="output" aria-live="polite" aria-label="Pasted signature verification result"></div>
+          <div id="paste-info" class="output" aria-live="polite"></div>
         </details>
         ${renderQuiz(quizzes.q3)}
       </section>
@@ -702,17 +702,17 @@ export function renderApp(root: HTMLElement): void {
         <p class="small-note">
           Size fields use published NIST submission parameter values. Timing columns are indicative reference-software measurements and hardware-dependent.
         </p>
-        <div class="chip-row" aria-label="Algorithm status chips">
-          <span class="status-chip" aria-label="Falcon status">Falcon — smallest signatures, highest implementation care</span>
-          <span class="status-chip" aria-label="ML-DSA status">ML-DSA — balanced performance and simpler implementation</span>
-          <span class="status-chip" aria-label="SLH-DSA status">SLH-DSA — conservative hash-based, no lattice assumptions</span>
+        <div class="chip-row">
+          <span class="status-chip">Falcon — smallest signatures, highest implementation care</span>
+          <span class="status-chip">ML-DSA — balanced performance and simpler implementation</span>
+          <span class="status-chip">SLH-DSA — conservative hash-based, no lattice assumptions</span>
         </div>
 
         <h3>Your message vs each scheme's signature</h3>
         <p class="small-note">Edit the message above in Panel 3 to see how the ratio shifts. Short messages amplify Falcon's advantage; long messages make all signatures look small.</p>
-        <div id="vsize-block" class="vsize-block" aria-label="Message vs signature size strips">${renderVisceralSize()}</div>
+        <div id="vsize-block" class="vsize-block">${renderVisceralSize()}</div>
 
-        <div class="table-wrap" aria-label="Security and performance comparison table">
+        <div class="table-wrap" role="group" tabindex="0" aria-label="Security and performance comparison table">
           <table>
             <caption>Smallest parameter set of each scheme &mdash; note the NIST categories differ</caption>
             <thead>
@@ -732,7 +732,7 @@ export function renderApp(root: HTMLElement): void {
           </table>
           <p class="small-note">These are each scheme's smallest standard parameter set, not a like-for-like security comparison. Falcon-512 and SLH-DSA-128s claim NIST category 1; the smallest ML-DSA set, ML-DSA-44, claims category 2 (FIPS 204). ML-DSA therefore has no category-1 set to put in this row, so it is carrying a slightly higher security target than the other two.</p>
         </div>
-        <div class="table-wrap" aria-label="Level 5 comparison table">
+        <div class="table-wrap" role="group" tabindex="0" aria-label="Level 5 comparison table">
           <table>
             <caption>NIST Category 5 sets</caption>
             <thead>
@@ -751,7 +751,7 @@ export function renderApp(root: HTMLElement): void {
             <tbody>${tableRows(comparisonRowsLevel5)}</tbody>
           </table>
         </div>
-        <div class="bars" aria-label="Signature size visual comparison">
+        <div class="bars">
           ${renderComparisonBars()}
         </div>
         <p class="warning">
@@ -794,7 +794,7 @@ export function renderApp(root: HTMLElement): void {
         <div class="actions">
           <button id="sample-btn" class="btn alt" type="button" aria-label="Run 512 simulated samples and chart their timings">Run 512 samples</button>
         </div>
-        <div id="timing-viz" class="timing-viz" aria-live="polite" aria-label="Timing histogram">
+        <div id="timing-viz" class="timing-viz" aria-live="polite">
           ${renderTimingHistogram([])}
         </div>
         <h3>Now run the attack</h3>
@@ -804,7 +804,7 @@ export function renderApp(root: HTMLElement): void {
         <div class="actions">
           <button id="attack-btn" class="btn alt" type="button" aria-label="Simulate a timing attack over 200 observed signatures">Attack: observe 200 signatures</button>
         </div>
-        <div id="attack-viz" class="timing-viz" aria-live="polite" aria-label="Timing attack progress">
+        <div id="attack-viz" class="timing-viz" aria-live="polite">
           ${renderAttack()}
         </div>
         <p class="warning" role="note">
@@ -823,7 +823,7 @@ export function renderApp(root: HTMLElement): void {
           Falcon is under active consideration by ETSI for post-quantum TLS and certificate profiles. IoT standards bodies (IETF, GlobalPlatform) have noted Falcon's compact signatures as advantageous for constrained device firmware signing and secure boot chains.
         </p>
 
-        <div class="links" aria-label="Related demos">
+        <div class="links">
           <a class="badge" href="https://systemslibrarian.github.io/crypto-lab-dilithium-seal/" target="_blank" rel="noreferrer" aria-label="Open crypto-lab-dilithium-seal (ML-DSA comparison)">crypto-lab-dilithium-seal</a>
           <a class="badge" href="https://systemslibrarian.github.io/crypto-lab-sphincs-ledger/" target="_blank" rel="noreferrer" aria-label="Open crypto-lab-sphincs-ledger (SLH-DSA comparison)">crypto-lab-sphincs-ledger</a>
           <a class="badge" href="https://github.com/systemslibrarian/crypto-lab-kyber-vault" target="_blank" rel="noreferrer" aria-label="Open crypto-lab-kyber-vault">crypto-lab-kyber-vault</a>
@@ -839,10 +839,10 @@ export function renderApp(root: HTMLElement): void {
           (<a href="https://github.com/cyph/pqcrypto.js" target="_blank" rel="noreferrer">falcon-crypto / pqcrypto.js</a>) on your machine:
           real key generation, real signing of your Panel 3 message, real verification, real byte counts and timings.
         </p>
-        <div class="actions" aria-label="Real Falcon controls">
+        <div class="actions">
           <button id="real-falcon-btn" class="btn" type="button" aria-label="Run real Falcon-1024 keygen, sign, and verify in WebAssembly">Run real Falcon-1024 on your message</button>
         </div>
-        <div id="real-falcon-info" class="output" aria-live="polite" aria-label="Real Falcon run results"></div>
+        <div id="real-falcon-info" class="output" aria-live="polite"></div>
         <p class="small-note">
           This build exposes Falcon-1024 with the fixed-size <em>padded</em> signature format: 1 header byte + 40-byte salt + padded body = 1,330 B,
           per PQClean's <code>CRYPTO_BYTES</code>. The number you will see reported above is <strong>1,332 B</strong>, because the
@@ -860,8 +860,8 @@ ${trapdoorPanelHtml()}
         </ul>
       </section>
 
-      <footer class="footer" aria-label="Footer quote">
-        <div class="links" aria-label="Related demos">
+      <footer class="footer">
+        <div class="links">
           Related demos:
           <a class="badge" href="https://systemslibrarian.github.io/crypto-lab-dilithium-seal/" target="_blank" rel="noreferrer">crypto-lab-dilithium-seal</a>
           <a class="badge" href="https://systemslibrarian.github.io/crypto-lab-sphincs-ledger/" target="_blank" rel="noreferrer">crypto-lab-sphincs-ledger</a>
@@ -1376,7 +1376,7 @@ function bindEvents(root: HTMLElement): void {
         host.classList.add(healthy ? 'ok' : 'bad');
         const illustrativeBytes = state.signResult?.signature.simulatedPayloadBytes;
         host.innerHTML = `
-          <div class="table-wrap">
+          <div class="table-wrap" role="group" tabindex="0" aria-label="Real Falcon-1024 measured run">
             <table>
               <caption>Real Falcon-1024 (reference implementation, WASM) — measured on your machine just now</caption>
               <thead><tr><th>Step</th><th>Result</th><th>Time</th></tr></thead>

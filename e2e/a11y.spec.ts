@@ -1,80 +1,50 @@
-import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { test } from '@playwright/test';
+import { boot, driveAllStates, NARROW, WIDE, reportCollected } from './gate';
 
 /**
- * WCAG regression gate. Deploys are already gated on the demo flow; this gates
- * them on accessibility the same way. Scans the full page with every <details>
- * expanded, in both themes.
+ * WCAG gate for Falcon Seal.
+ *
+ * Four configurations — {dark, light} x {1280, 380} — because this lab's two
+ * palettes are genuinely different stylesheets' worth of colour (`:root` is the
+ * light one, `:root[data-theme='dark']` re-specifies fourteen tokens), and
+ * because almost everything on the page has a `min-width` that only matters at
+ * phone width: two comparison tables at 700px, a key-size table at 400px, an
+ * SVG lattice figure, and five polynomial dumps in Panel 7.
+ *
+ * The spec this replaces ran two configurations, both at the default viewport,
+ * and its whole drive was Panel 7. It injected
+ * `*{animation:none;transition:none}` before scanning, forced every `<details>`
+ * open from script, checked one hand-rolled 1.4.11 ratio on the one control the
+ * stylesheet's `--control-border` token is actually used on, and then scanned
+ * once with axe's `violations` array.
+ *
+ * `test.setTimeout` is generous because the drive scans after every step, each
+ * scan runs axe plus a full composite-aware contrast walk, and Panel 6 compiles
+ * and runs reference Falcon-1024 in WebAssembly.
  */
 
-const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
+test.setTimeout(900_000);
 
-async function openAllDetails(page: Page): Promise<void> {
-  await page.addStyleTag({
-    content: '*, *::before, *::after { animation: none !important; transition: none !important; }',
-  });
-  await page.evaluate(() => {
-    for (const details of document.querySelectorAll('details')) {
-      details.open = true;
-    }
-  });
-}
+test.describe('desktop viewport', () => {
+  test.use({ viewport: WIDE });
 
-async function scan(page: Page): Promise<void> {
-  const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
-  const summary = results.violations.map((v) => ({
-    id: v.id,
-    impact: v.impact,
-    help: v.help,
-    nodes: v.nodes.map((n) => n.target.join(' ')).slice(0, 5),
-  }));
-  expect(summary).toEqual([]);
-}
-
-async function textareaBoundaryRatio(page: Page): Promise<number> {
-  return page.locator('textarea').first().evaluate((el) => {
-    const rgb = (value: string) => value.match(/[\d.]+/g)!.slice(0, 3).map(Number);
-    const luminance = (parts: number[]) => {
-      const c = parts.map((part) => {
-        const value = part / 255;
-        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-      });
-      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-    };
-    const style = getComputedStyle(el);
-    const border = luminance(rgb(style.borderTopColor));
-    const fill = luminance(rgb(style.backgroundColor));
-    return (Math.max(border, fill) + 0.05) / (Math.min(border, fill) + 0.05);
-  });
-}
-
-// Panel 7 renders its tables only after a run, and an empty <output> is not the
-// DOM that reaches a learner. Drive the whole panel before scanning.
-async function runTrapdoorPanel(page: Page): Promise<void> {
-  await page.locator('#td-keygen').click();
-  await expect(page.locator('#td-key')).toContainText('Key generated', { timeout: 60_000 });
-  await page.locator('#td-sign').click();
-  await expect(page.locator('#td-sign-out')).toContainText('The signature', { timeout: 60_000 });
-  await page.locator('#td-forge').click();
-  await expect(page.locator('#td-sign-out')).toContainText('forged signature', { timeout: 60_000 });
-  await page.locator('#td-half').click();
-  await expect(page.locator('#td-compare')).toContainText('No private key at all', { timeout: 60_000 });
-}
-
-test('no WCAG A/AA violations in dark theme', async ({ page }) => {
-  await page.goto('.');
-  await runTrapdoorPanel(page);
-  await openAllDetails(page);
-  expect(await textareaBoundaryRatio(page)).toBeGreaterThanOrEqual(3);
-  await scan(page);
+  for (const theme of ['dark', 'light'] as const) {
+    test(`WCAG gate — ${theme}, 1280px`, async ({ page }) => {
+      await boot(page, theme);
+      await driveAllStates(page, `${theme}/1280`);
+      reportCollected();
+    });
+  }
 });
 
-test('no WCAG A/AA violations in light theme', async ({ page }) => {
-  await page.goto('.');
-  await runTrapdoorPanel(page);
-  await page.locator('#cl-theme-toggle').click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await openAllDetails(page);
-  expect(await textareaBoundaryRatio(page)).toBeGreaterThanOrEqual(3);
-  await scan(page);
+test.describe('narrow viewport', () => {
+  test.use({ viewport: NARROW });
+
+  for (const theme of ['dark', 'light'] as const) {
+    test(`WCAG gate — ${theme}, 380px`, async ({ page }) => {
+      await boot(page, theme);
+      await driveAllStates(page, `${theme}/380`);
+      reportCollected();
+    });
+  }
 });

@@ -75,7 +75,7 @@ export function trapdoorPanelHtml(): string {
           this panel does not implement.
         </p>
 
-        <div class="actions" aria-label="Trapdoor controls">
+        <div class="actions">
           <button id="td-keygen" class="btn" type="button">1 · Generate a real trapdoor key</button>
           <button id="td-sign" class="btn" type="button" disabled>2 · Sign with the full trapdoor</button>
           <button id="td-half" class="btn" type="button" disabled>3 · Sign with only (f, g)</button>
@@ -83,9 +83,9 @@ export function trapdoorPanelHtml(): string {
           <button id="td-damage" class="btn" type="button" disabled>5 · Damage one coefficient of F</button>
         </div>
 
-        <div id="td-key" class="output" aria-live="polite" aria-label="Trapdoor key generation result"></div>
-        <div id="td-sign-out" class="output" aria-live="polite" aria-label="Trapdoor signing result"></div>
-        <div id="td-compare" class="output" aria-live="polite" aria-label="Comparison of signer capabilities"></div>
+        <div id="td-key" class="output" aria-live="polite"></div>
+        <div id="td-sign-out" class="output" aria-live="polite"></div>
+        <div id="td-compare" class="output" aria-live="polite"></div>
       </section>`;
 }
 
@@ -103,7 +103,7 @@ function keyHtml(key: TrapdoorKeyPair): string {
   return `
     <p><strong>Key generated.</strong> ${key.keygenAttempts === 1 ? 'The first' : `Draw ${key.keygenAttempts} of`} (f, g)
     gave coprime resultants, so the NTRU equation was solvable.</p>
-    <div class="table-wrap">
+    <div class="table-wrap" tabindex="0">
       <table>
         <caption>Private basis, computed just now (coefficients in Z[x]/(x<sup>${key.n}</sup>+1))</caption>
         <tbody>
@@ -115,7 +115,7 @@ function keyHtml(key: TrapdoorKeyPair): string {
         </tbody>
       </table>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap" tabindex="0">
       <table>
         <caption>The NTRU equation f·G − g·F, evaluated coefficient by coefficient</caption>
         <thead><tr><th scope="col">Term</th><th scope="col">Computed</th><th scope="col">Required</th><th scope="col"></th></tr></thead>
@@ -145,7 +145,7 @@ function attemptsHtml(result: TrapdoorSignResult, title: string): string {
     )
     .join('');
   return `
-    <div class="table-wrap">
+    <div class="table-wrap" tabindex="0">
       <table>
         <caption>${title} — every attempt's measured ‖s‖², bound β² = ${fmt(TOY_BOUND_SQ)}</caption>
         <thead><tr><th scope="col">Attempt</th><th scope="col">‖s‖² (measured)</th><th scope="col">Verdict</th></tr></thead>
@@ -156,7 +156,7 @@ function attemptsHtml(result: TrapdoorSignResult, title: string): string {
 
 function verifyHtml(v: TrapdoorVerifyResult, label: string): string {
   return `
-    <div class="table-wrap">
+    <div class="table-wrap" tabindex="0">
       <table>
         <caption>${label} — verified with h alone</caption>
         <thead><tr><th scope="col">Check</th><th scope="col">Result</th></tr></thead>
@@ -214,7 +214,7 @@ function comparisonHtml(): string {
   }
 
   return `
-    <div class="table-wrap">
+    <div class="table-wrap" tabindex="0">
       <table>
         <caption>Same public key, same message, same verifier — three signers, measured</caption>
         <thead><tr><th scope="col">Signer</th><th scope="col">Shortest ‖s‖² achieved</th><th scope="col">Verifier's answer</th></tr></thead>
@@ -280,7 +280,7 @@ export function wireTrapdoorPanel(root: HTMLElement, getMessage: () => string): 
       `${attemptsHtml(state.full, `Signing “${message}” with all ${state.full.basisRows} basis rows`)}
        ${
          sig
-           ? `<div class="table-wrap"><table>
+           ? `<div class="table-wrap" tabindex="0"><table>
                 <caption>The signature</caption>
                 <tbody>
                   <tr><th scope="row">nonce</th><td class="mono">${sig.nonceHex}</td></tr>

@@ -76,6 +76,17 @@ body {
   margin: 0 auto;
   padding: 14px;
   display: grid;
+  /* minmax(0, 1fr), not the implicit `auto` track. A grid item's automatic
+     minimum size is its min-content size, and #panel-4's comparison tables give
+     it a min-content of 730px. With an `auto` track that one panel sized the
+     single column for the whole page, so at 380px EVERY item — the hero
+     included — was laid out 730px wide and the document scrolled to 744px
+     (WCAG 1.4.10). The hero was the symptom the overflow check named; panel 4
+     was the cause.
+     The `overflow-x: auto` on `.table-wrap` could not help while the item was
+     free to grow: the scroller only starts scrolling once its container is
+     actually narrower than the table. This lets it be. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
 }
 
@@ -233,6 +244,19 @@ textarea:focus-visible {
   outline-offset: 3px;
 }
 
+/* The scrollable regions carry tabindex="0" so a keyboard user can scroll them
+   (WCAG 2.1.1). Anything focusable must also SHOW focus (2.4.7), and these are
+   neither buttons nor links, so the rule above did not reach them — the pass
+   that made them focusable left seven regions with no focus indicator at all.
+   The offset is 0, not 3px: these sit flush inside grid panels, where an outset
+   ring is clipped by the panel edge. */
+.table-wrap:focus-visible,
+#lattice-viz:focus-visible,
+.key-size-table:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 0;
+}
+
 .form {
   display: grid;
   gap: 8px;
@@ -255,8 +279,15 @@ textarea {
   border-radius: 10px;
   padding: 10px;
   background-color: color-mix(in srgb, var(--text) 4%, transparent);
-  overflow-x: auto;
-  word-break: break-word;
+  /* `overflow-wrap: anywhere`, not a scroller. These blocks hold unbroken
+     polynomial dumps and hex nonces, and the previous `overflow-x: auto` turned
+     every one of them into a scrolling region that held nothing focusable —
+     eleven keyboard traps in the WCAG 2.1.1 sense, none of them reachable.
+     Wrapping the token is the fix; `anywhere` rather than the legacy
+     `word-break: break-word` because only `anywhere` also lowers the
+     min-content size, which is what lets these blocks shrink inside the
+     `display: grid` panels at 380px instead of forcing the page sideways. */
+  overflow-wrap: anywhere;
 }
 
 .mono {
