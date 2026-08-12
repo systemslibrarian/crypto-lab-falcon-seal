@@ -36,6 +36,16 @@ type PanelState = {
   forged: ForgeResult | null;
   damagedVerify: TrapdoorVerifyResult | null;
   damagedSigned: boolean;
+  /**
+   * The message the rows currently in the comparison table were produced from.
+   *
+   * The table's caption says "same public key, same message, same verifier", but each button
+   * read the message box live at click time. Sign with the full basis, edit the message in
+   * Panel 3, then press Forge, and the caption asserted a shared message across two rows that
+   * never had one. Rows now belong to a captured message, and a different one starts a fresh
+   * comparison instead of joining the old table.
+   */
+  experimentMessage: string | null;
 };
 
 const state: PanelState = {
@@ -45,11 +55,14 @@ const state: PanelState = {
   half: null,
   forged: null,
   damagedVerify: null,
-  damagedSigned: false
+  damagedSigned: false,
+  experimentMessage: null
 };
 
 const fmt = (v: bigint | number): string => v.toLocaleString('en-US');
 const poly = (p: bigint[] | number[]): string => `[${p.map((x) => String(x)).join(', ')}]`;
+const esc = (s: string): string =>
+  s.replace(/&/gu, '&amp;').replace(/</gu, '&lt;').replace(/>/gu, '&gt;').replace(/"/gu, '&quot;');
 
 export function trapdoorPanelHtml(): string {
   return `
@@ -78,7 +91,7 @@ export function trapdoorPanelHtml(): string {
         <div class="actions">
           <button id="td-keygen" class="btn" type="button">1 · Generate a real trapdoor key</button>
           <button id="td-sign" class="btn" type="button" disabled>2 · Sign with the full trapdoor</button>
-          <button id="td-half" class="btn" type="button" disabled>3 · Sign with only (f, g)</button>
+          <button id="td-half" class="btn" type="button" disabled>3 · Attempt signing with an incomplete n-row basis</button>
           <button id="td-forge" class="btn" type="button" disabled>4 · Forge with no private key</button>
           <button id="td-damage" class="btn" type="button" disabled>5 · Damage one coefficient of F</button>
         </div>
@@ -184,7 +197,7 @@ function comparisonHtml(): string {
   }
   if (state.half) {
     rows.push([
-      `Half the private key — (f, g) only, ${TOY_N} basis rows`,
+      `Incomplete rank-${TOY_N} basis — rotations of (g, −f) only, ${TOY_N} basis rows`,
       state.half.bestNormSq === null ? '—' : `${fmt(state.half.bestNormSq)} (best of ${state.half.attempts.length})`,
       state.half.signature ? '✅ accepted' : '❌ rejected — every attempt over the bound'
     ]);
@@ -206,21 +219,67 @@ function comparisonHtml(): string {
   if (state.full?.signature && state.half?.bestNormSq && state.forged) {
     const trapdoorAdvantage = Number(state.half.bestNormSq) / Number(state.full.signature.normSq);
     const halfVsNone = Number(state.half.bestNormSq) / Number(state.forged.bestNormSq);
+    /**
+     * Both halves of this sentence used to be unconditional, and both were wrong.
+     *
+     * "Came within N× of someone holding no key whatsoever" was direction-blind: the ratio
+     * is the rank-deficient signer's best norm over the forger's, and over 60 engine runs it
+     * ranged 0.50–22.98, landing BELOW 1 in 5 of them (8.3%). At 22.98 the phrasing describes
+     * being 23× worse as "coming within"; at 0.50 it describes being twice as good the same way.
+     *
+     * "Half a trapdoor is not half an advantage; it is none" is a claim about what a holder
+     * of (f, g) can do, and the experiment does not show it. `generateTrapdoorKey` above
+     * derives (F, G) from (f, g) by solving the NTRU equation — a (f, g) holder can run that
+     * same solve. What this button withholds is the completion procedure, not merely secret
+     * data, so the honest conclusion is the narrow one about a rank-deficient basis.
+     */
+    const direction =
+      halfVsNone >= 1
+        ? `<strong>${halfVsNone.toFixed(1)}×</strong> longer than`
+        : `<strong>${(1 / halfVsNone).toFixed(1)}×</strong> shorter than`;
     reading = `<p id="td-reading">Read off the three numbers above: the full trapdoor produced a vector
-      <strong>${trapdoorAdvantage.toFixed(0)}×</strong> shorter in squared norm than the best half-key attempt, while the
-      half-key signer came within <strong>${halfVsNone.toFixed(1)}×</strong> of someone holding no key whatsoever.
-      Half a trapdoor is not half an advantage; it is none. That gap is the entire security argument, and it is the
-      thing the illustrative flow in Panel 3 cannot show, because that flow never reads the private key at all.</p>`;
+      <strong>${trapdoorAdvantage.toFixed(0)}×</strong> shorter in squared norm than the best attempt from the
+      incomplete basis, which in turn came out ${direction} the best attempt from someone holding no key at all —
+      and both of those were rejected. Withholding the completion rows leaves a rank-deficient basis, so round-off
+      cannot cancel the target in all ${2 * TOY_N} directions, and its results are no better than the public-only
+      attempt. That gap is the entire security argument, and it is the thing the illustrative flow in Panel 3 cannot
+      show, because that flow never reads the private key at all.</p>
+      <p class="small-note" id="td-reading-caveat">What this does <em>not</em> show: that a party holding (f, g) is
+      no better off than the public. Key generation above derives (F, G) from (f, g) by solving f·G − g·F = q, and
+      an (f, g) holder can run that same solve. This button withholds the completion <em>procedure</em>, not just
+      secret data — the measured result is about a deliberately rank-deficient basis, not about what half a key is
+      worth.</p>`;
   }
+
+  const message = state.experimentMessage;
+  const caption =
+    message === null
+      ? 'Same public key, same verifier — three signers, measured'
+      : `Same public key, same verifier, and all three on the message <span class="mono" id="td-experiment-message">${esc(message)}</span> — measured`;
 
   return `
     <div class="table-wrap" tabindex="0">
       <table>
-        <caption>Same public key, same message, same verifier — three signers, measured</caption>
+        <caption>${caption}</caption>
         <thead><tr><th scope="col">Signer</th><th scope="col">Shortest ‖s‖² achieved</th><th scope="col">Verifier's answer</th></tr></thead>
         <tbody>${body}</tbody>
       </table>
     </div>${reading}`;
+}
+
+/**
+ * Capture the message these rows belong to. A different message means the rows no longer
+ * share one, so the earlier ones are dropped rather than left under a caption that says
+ * they do.
+ */
+function beginComparisonAction(message: string): void {
+  if (state.experimentMessage !== null && state.experimentMessage !== message) {
+    state.full = null;
+    state.fullVerify = null;
+    state.half = null;
+    state.forged = null;
+  }
+  state.experimentMessage = message;
 }
 
 function setHtml(id: string, html: string, tone: 'ok' | 'warn' | 'bad' | null): void {
@@ -255,6 +314,7 @@ export function wireTrapdoorPanel(root: HTMLElement, getMessage: () => string): 
     state.forged = null;
     state.damagedVerify = null;
     state.damagedSigned = false;
+    state.experimentMessage = null;
     setHtml('td-sign-out', '', null);
     setHtml('td-compare', '', null);
     try {
@@ -270,6 +330,7 @@ export function wireTrapdoorPanel(root: HTMLElement, getMessage: () => string): 
   signBtn.addEventListener('click', async () => {
     if (!state.key) return;
     const message = getMessage();
+    beginComparisonAction(message);
     state.full = await signWithTrapdoor(state.key, message, trapdoorBasis(state.key));
     state.fullVerify = state.full.signature
       ? await verifyTrapdoor(state.key.h, message, state.full.signature)
@@ -299,12 +360,13 @@ export function wireTrapdoorPanel(root: HTMLElement, getMessage: () => string): 
   halfBtn.addEventListener('click', async () => {
     if (!state.key) return;
     const message = getMessage();
+    beginComparisonAction(message);
     state.half = await signWithTrapdoor(state.key, message, strippedBasis(state.key));
     setHtml(
       'td-sign-out',
-      `<p><strong>Signing with (f, g) only.</strong> The signer keeps half the private key and loses the
-        ${TOY_N} rows that (F, G) contributed, so the basis spans a ${state.half.basisRows}-dimensional
-        sublattice of a ${2 * TOY_N}-dimensional one. Round-off still lands in the right coset — the
+      `<p><strong>Signing against an incomplete rank-${TOY_N} basis.</strong> Only the rotations of (g, −f) are
+        supplied; the ${TOY_N} rows that (F, G) contributed are withheld, so the basis spans a
+        ${state.half.basisRows}-dimensional sublattice of a ${2 * TOY_N}-dimensional one. Round-off still lands in the right coset — the
         verification equation will still hold — but it cannot cancel the target's components in the
         directions the missing rows spanned.</p>
        ${attemptsHtml(state.half, `Signing “${message}” with ${state.half.basisRows} of ${2 * TOY_N} basis rows`)}
@@ -323,6 +385,7 @@ export function wireTrapdoorPanel(root: HTMLElement, getMessage: () => string): 
   forgeBtn.addEventListener('click', async () => {
     if (!state.key) return;
     const message = getMessage();
+    beginComparisonAction(message);
     state.forged = await forgeWithoutTrapdoor(state.key.h, message, TOY_N, TOY_Q, 200);
     const v = await verifyTrapdoor(state.key.h, message, state.forged.signature);
     setHtml(

@@ -12,7 +12,7 @@
     "test:e2e": "playwright test",
     "test:a11y": "playwright test e2e/a11y.spec.ts",
     "og-image": "node scripts/generate-og-image.mjs",
-    "deploy": "vite build && gh-pages -d dist"
+    "deploy": "npm run build && gh-pages -d dist"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.1",

@@ -86,7 +86,17 @@ test('the comparison table is written from three measured runs, not from labels'
   await expect(compare).toContainText('No private key at all');
 
   const reading = page.locator('#td-reading');
-  await expect(reading).toContainText('Half a trapdoor is not half an advantage');
+  // The reading used to conclude "Half a trapdoor is not half an advantage; it is
+  // none". That overclaims what this experiment shows, and this test pinned the
+  // overclaim: `generateTrapdoorKey` derives (F, G) from (f, g) by solving
+  // f·G − g·F = q, so a holder of (f, g) can run that same solve. What the button
+  // withholds is the completion PROCEDURE, not merely secret data. The honest
+  // conclusion is the narrow one about a rank-deficient basis, and the panel must
+  // also carry the caveat naming what the experiment does not establish.
+  await expect(reading).toContainText('rank-deficient basis');
+  await expect(page.locator('#td-reading-caveat')).toContainText(
+    'an (f, g) holder can run that same solve',
+  );
 
   // The three squared norms must actually be ordered full < half ≈ none, read
   // out of the rendered cells rather than trusted from the prose beside them.
