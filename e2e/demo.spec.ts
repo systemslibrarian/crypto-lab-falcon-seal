@@ -1,5 +1,31 @@
 import { expect, test } from '@playwright/test';
 
+test('the guided tour visits the toy trapdoor panel before finishing on the WASM panel', async ({ page }) => {
+  await page.goto('./');
+  await page.locator('#tour-btn').click();
+  await expect(page.locator('.tour-card')).toBeVisible();
+
+  // Walk every step, recording which panel each one highlights. The tour used
+  // to end at Panel 6 with "That's the whole demo" while never visiting the
+  // trapdoor mechanism in Panel 7 — the lab's central exhibit.
+  const visited: string[] = [];
+  for (;;) {
+    await expect(page.locator('.tour-highlight')).toHaveCount(1);
+    visited.push((await page.locator('.tour-highlight').getAttribute('id')) ?? '');
+    const next = page.locator('.tour-card [data-tour="next"]');
+    if ((await next.innerText()).includes('Finish')) break;
+    await next.click();
+  }
+
+  expect(visited).toContain('panel-7');
+  // The WASM panel is the finale, and the trapdoor mechanism comes before it.
+  expect(visited[visited.length - 1]).toBe('panel-6');
+  expect(visited.indexOf('panel-7')).toBeLessThan(visited.length - 1);
+
+  await page.locator('.tour-card [data-tour="exit"]').click();
+  await expect(page.locator('.tour-card')).toHaveCount(0);
+});
+
 test('full demo flow in a real browser, including the WASM panel', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('h1')).toHaveText('Falcon Seal');

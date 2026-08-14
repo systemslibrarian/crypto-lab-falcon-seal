@@ -445,7 +445,7 @@ const quizzes: Record<string, Quiz> = {
     options: [
       { text: 'The public modulus q.' },
       {
-        text: 'The short polynomial pair (f, g) — a short basis of the NTRU lattice that enables Gaussian sampling.',
+        text: 'The completed short NTRU basis — (f, g) extended by keygen with the solved completion (F, G) — which enables sampling short solutions to the challenge equation.',
         correct: true
       },
       { text: 'The signature nonce.' },
@@ -1307,7 +1307,7 @@ function bindEvents(root: HTMLElement): void {
         host.innerHTML = renderVerifyBlock(
           v,
           v.overall
-            ? `😱 <strong>It verified — and no private key was used.</strong> You found this demo's weak spot, and it is worse than "the forger got lucky": <code>forgeShortSignature</code> and <code>signFalconIllustrative</code> run the <em>same</em> sampling loop, because the signer never reads (f, g) either. The digest of h·s − c is stored <em>inside the signature</em>, so anyone who samples a short Gaussian s and computes that digest honestly passes both checks. The signer has no advantage over you. <strong>Real Falcon is immune:</strong> its verifier recomputes the challenge c and checks the fixed equation s₁ + s₂·h = c — the challenge dictates what s must satisfy, and finding a <em>short</em> solution to that equation without the trapdoor basis (f, g) is the SIS-style lattice problem believed hard even for quantum computers. This gap is exactly the distance between a teaching flow and FIPS 206 — and <a href="#panel-7">Panel 7</a> closes it at toy scale: there the verifier checks s₁ + s₂·h ≡ c, the same forgery satisfies that equation and is rejected on the norm, and a signer holding only (f, g) does no better than one holding nothing.`
+            ? `😱 <strong>It verified — and no private key was used.</strong> You found this demo's weak spot, and it is worse than "the forger got lucky": <code>forgeShortSignature</code> and <code>signFalconIllustrative</code> run the <em>same</em> sampling loop, because the signer never reads (f, g) either. The digest of h·s − c is stored <em>inside the signature</em>, so anyone who samples a short Gaussian s and computes that digest honestly passes both checks. The signer has no advantage over you. <strong>Real Falcon is immune:</strong> its verifier recomputes the challenge c and checks the fixed equation s₁ + s₂·h = c — the challenge dictates what s must satisfy, and finding a <em>short</em> solution to that equation without the trapdoor basis (f, g) is the SIS-style lattice problem believed hard even for quantum computers. This gap is exactly the distance between a teaching flow and FIPS 206 — and <a href="#panel-7">Panel 7</a> closes it at toy scale: there the verifier checks s₁ + s₂·h ≡ c, the same forgery satisfies that equation and is rejected on the norm, and even a signer handed a deliberately incomplete rank-n basis — the completion (F, G) withheld — measures no better than one holding nothing.`
             : 'The sampler happened to exceed the norm bound this time — try again.'
         );
       }
@@ -1477,9 +1477,27 @@ function bindEvents(root: HTMLElement): void {
         action: () => root.querySelector<HTMLButtonElement>('#attack-btn')?.click()
       },
       {
+        target: '#panel-7',
+        title: 'The missing mechanism, for real — at n = 8',
+        body: 'Panels 2–3 admitted their signer never reads the private key. This panel supplies what they lack: it samples (f, g), solves the NTRU equation f·G − g·F = q exactly for the completion (F, G) — shown coefficient by coefficient — and builds the full 2n-row trapdoor basis. Toy scale, stated plainly: n = 8 offers no security, and Babai round-off stands in for Falcon’s Gaussian sampler.',
+        action: () => root.querySelector<HTMLButtonElement>('#td-keygen')?.click()
+      },
+      {
+        target: '#panel-7',
+        title: 'Sign with the trapdoor — the key is load-bearing',
+        body: 'We just signed with the completed basis. The verifier checks Falcon’s real equation s₁ + s₂·h ≡ c (mod q) plus the norm bound, using only the public key — and both hold. Unlike Panel 3, this signature depends on the private key: after the tour, try the incomplete-basis and damaged-F buttons and watch it fail.',
+        action: () => root.querySelector<HTMLButtonElement>('#td-sign')?.click()
+      },
+      {
+        target: '#panel-7',
+        title: 'The forgery Panel 3 could not stop, stopped',
+        body: 'A forger holding only the public key just satisfied the verification equation — anyone can, by picking s₂ and solving for s₁. But the shortest of its 200 attempts is still orders of magnitude over the norm bound, so the verifier rejects it. Equation and shortness together are the unforgeability witness, and only the trapdoor delivers both.',
+        action: () => root.querySelector<HTMLButtonElement>('#td-forge')?.click()
+      },
+      {
         target: '#panel-6',
         title: 'And this is the real thing',
-        body: 'Everything so far was illustrative. This panel runs the reference Falcon-1024 compiled to WebAssembly — real keys, real 1.3 kB signatures, real timings, on your machine. That’s the whole demo. Explore, and try the quizzes!',
+        body: 'Panels 1–5 were illustrative and Panel 7 is a toy. This panel runs the reference Falcon-1024 compiled to WebAssembly — real keys, real 1.3 kB signatures, real timings, on your machine. That’s the whole demo. Explore, and try the quizzes!',
         action: () => root.querySelector<HTMLButtonElement>('#real-falcon-btn')?.click()
       }
     ]);

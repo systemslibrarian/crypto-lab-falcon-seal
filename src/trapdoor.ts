@@ -498,8 +498,11 @@ export type TrapdoorSignResult = {
  * target's components in the n directions the missing rows span, so every
  * result comes out roughly q/2 away there and the norm check rejects all of
  * them. The measured norms of those rejected attempts are returned so the page
- * can put them next to the forger's, which is where they belong: a signer
- * holding half the private key is no better off than someone holding none of it.
+ * can put them next to the forger's, which is where they belong: the
+ * rank-deficient basis's best results land in the forger's range, not the
+ * honest signer's. (That is a statement about the withheld completion rows,
+ * not about a holder of (f, g) — such a holder could re-run the NTRU solve in
+ * `generateTrapdoorKey` and recover (F, G) themselves.)
  */
 export async function signWithTrapdoor(
   key: TrapdoorKeyPair,

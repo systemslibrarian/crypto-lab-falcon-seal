@@ -67,7 +67,7 @@ const esc = (s: string): string =>
 export function trapdoorPanelHtml(): string {
   return `
       <section class="panel" id="panel-7" aria-labelledby="p7-title">
-        <h2 id="p7-title">Panel 7 — Real trapdoor signing (toy n = ${TOY_N})</h2>
+        <h2 id="p7-title">Panel 7 — Real NTRU trapdoor at toy scale (n = ${TOY_N}, Babai round-off)</h2>
         <p>
           Panels 2 and 3 run an illustrative flow that, as it says there, <strong>never reads the private key</strong>.
           This panel is the mechanism that flow is missing. It samples (f, g) from Falcon's own key distribution

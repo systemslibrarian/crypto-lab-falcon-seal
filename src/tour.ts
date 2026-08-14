@@ -1,7 +1,7 @@
 // Guided tour: a lightweight stepper that walks a newcomer through the demo in
 // signing order — lattice, keygen, hash→challenge, rejection sampling, verify,
-// tamper, side-channel — highlighting the live panel and (where useful) pressing
-// the buttons for them.
+// tamper, side-channel, toy trapdoor, real WASM — highlighting the live panel
+// and (where useful) pressing the buttons for them.
 
 export type TourStep = {
   target: string; // CSS selector of the element to highlight

@@ -31,7 +31,7 @@ What the Layer A flow still teaches honestly: real NTRU key generation via a rea
 
 **[systemslibrarian.github.io/crypto-lab-falcon-seal](https://systemslibrarian.github.io/crypto-lab-falcon-seal/)**
 
-In the browser you can generate a Falcon-512 keypair, sign a message, verify the signature, and run a tamper test to watch verification fail on modified input — or press **▶ Walk me through it** for a guided tour that drives every panel in signing order. Beyond the core flow:
+In the browser you can generate a Falcon-512 keypair, sign a message, verify the signature, and run a tamper test to watch verification fail on modified input — or press **▶ Walk me through it** for a guided tour that walks the demo in signing order, from the lattice primer through the toy trapdoor mechanism to the WebAssembly finale. Beyond the core flow:
 
 - **Babai lattice playground** — click to place a target on a 2D lattice, then decode it with the private short basis vs the public long basis (same lattice!) and watch nearest-plane rounding succeed or miss. This is the trapdoor, interactively.
 - **Forgery playground** — a random forger satisfies the hash equation but fails the norm check by an order of magnitude; flipping one coefficient of a real signature breaks the digest check instead. A third button, **Forge like a pro**, deliberately breaks the toy scheme itself (short Gaussian s + honest digest) to teach why real Falcon's verification equation s₁ + s₂·h = c — not a stored digest — is what actually requires the trapdoor.

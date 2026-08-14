@@ -79,7 +79,7 @@ describe('signing depends on the private key', () => {
     expect(result.bestNormSq!).toBeGreaterThan(TOY_BOUND_SQ * 100n);
   });
 
-  it('a signer holding half the private key is no better off than a forger', async () => {
+  it('an incomplete rank-n basis lands in the forger’s range, far above the full trapdoor', async () => {
     const key = generateTrapdoorKey();
     const half = await signWithTrapdoor(key, 'ship it', strippedBasis(key));
     const forged = await forgeWithoutTrapdoor(key.h, 'ship it', TOY_N, TOY_Q, 30);
