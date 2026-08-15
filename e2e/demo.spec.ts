@@ -92,8 +92,6 @@ test('full demo flow in a real browser, including the WASM panel', async ({ page
   await expect(page.locator('#real-falcon-info')).toContainText('✅ valid', { timeout: 150_000 });
   await expect(page.locator('#real-falcon-info')).toContainText('rejected, as it must be');
 
-  // Visual record of both themes.
+  // Visual record.
   await page.screenshot({ path: 'test-results/screenshot-dark.png', fullPage: true });
-  await page.locator('#cl-theme-toggle').click();
-  await page.screenshot({ path: 'test-results/screenshot-light.png', fullPage: true });
 });

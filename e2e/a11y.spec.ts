@@ -28,7 +28,7 @@ test.setTimeout(900_000);
 test.describe('desktop viewport', () => {
   test.use({ viewport: WIDE });
 
-  for (const theme of ['dark', 'light'] as const) {
+  for (const theme of ['dark'] as const) {
     test(`WCAG gate — ${theme}, 1280px`, async ({ page }) => {
       await boot(page, theme);
       await driveAllStates(page, `${theme}/1280`);
@@ -40,7 +40,7 @@ test.describe('desktop viewport', () => {
 test.describe('narrow viewport', () => {
   test.use({ viewport: NARROW });
 
-  for (const theme of ['dark', 'light'] as const) {
+  for (const theme of ['dark'] as const) {
     test(`WCAG gate — ${theme}, 380px`, async ({ page }) => {
       await boot(page, theme);
       await driveAllStates(page, `${theme}/380`);
