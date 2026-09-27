@@ -780,6 +780,7 @@ export function renderApp(root: HTMLElement): void {
         <p>
           With that said: Falcon's Gaussian sampler is the single component where most real-world attacks land. A non-constant-time sampler leaks the magnitude of each sampled coefficient through timing; aggregated over many signatures, this recovers bits of the secret key.
         </p>
+        <p class="warning" role="note"><strong>Separate physical result (September 22, 2026):</strong> <a href="https://eprint.iacr.org/2026/2124" target="_blank" rel="noopener">Zhou et al., ePrint 2026/2124</a> report power-trace key recovery against PQClean Falcon signing on ARM Cortex-M4 through conversion leakage in Fast Fourier Sampling. This panel models timing only; its constant-time option is not a power-leakage countermeasure or a reproduction of that preprint.</p>
         <fieldset class="sampler-mode" aria-label="Sampler mode toggle">
           <legend>Simulated sampler</legend>
           <label class="paramset-opt">

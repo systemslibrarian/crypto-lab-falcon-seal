@@ -43,6 +43,7 @@ In the browser you can generate a Falcon-512 keypair, sign a message, verify the
 ## What Can Go Wrong
 
 - **Non-constant-time Gaussian sampling** — Falcon's sampler must be constant-time because timing leakage can expose information about the private basis.
+- **Physical leakage even without a timing branch** — [Zhou et al., ePrint 2026/2124 (September 22, 2026)](https://eprint.iacr.org/2026/2124) report power-based key recovery from PQClean Falcon signing on an ARM Cortex-M4, exploiting a conversion in Fast Fourier Sampling. Their measured target and physical-access assumptions differ from this page's synthetic timing model; a constant-time timing trace alone does not establish power resistance.
 - **Weak randomness for the nonce or sampler** — predictable randomness makes sampled values easier to analyze and undermines signature security.
 - **Incorrect NTRU / FFT / rejection logic** — Falcon depends on precise lattice arithmetic and norm checks, so implementation mistakes can produce invalid or non-interoperable signatures.
 - **Parameter-set or encoding mismatches** — mixing Falcon-512 and Falcon-1024 expectations or using nonstandard encodings will break verification across systems.
@@ -89,6 +90,7 @@ npm run build && npm run test:e2e
 ## References
 
 - Falcon: Fast-Fourier Lattice-Based Compact Signatures over NTRU (official specification document, v1.2) — [falcon-sign.info](https://falcon-sign.info/)
+- Zhou et al. (2026), [power side-channel analysis of Falcon's Fast Fourier Sampling](https://eprint.iacr.org/2026/2124) — preprint; measured PQClean on ARM Cortex-M4, not this browser simulation.
 - Ducas, Prest (2016), Fast Fourier Orthogonalization (ISSAC 2016) — the basis of Falcon's Fast Fourier Sampling
 - [NIST Post-Quantum Cryptography Standardization](https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization) — the selection record and the status of FIPS 206 (in development), alongside the published ML-DSA (FIPS 204) and SLH-DSA (FIPS 205) standards
 
