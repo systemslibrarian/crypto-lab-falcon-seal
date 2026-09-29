@@ -1,6 +1,6 @@
 import { createAttackState, runAttackRound, type AttackState } from './attack';
 import { BAD_BASIS_2D, GOOD_BASIS_2D, babaiRound, closestLatticePoint, distance, type Vec2 } from './babai';
-import { comparisonRowsLevel1, comparisonRowsLevel5, references, type SignatureRow } from './compare';
+import { comparisonRowsLevel1, comparisonRowsLevel5, references, type SignatureRow, FALCON_SIG_FOOTNOTE } from './compare';
 import {
   PARAMETER_SETS,
   flipSignatureCoefficient,
@@ -89,9 +89,9 @@ function currentSet(): FalconParameterSet {
   return PARAMETER_SETS[state.parameterSetName];
 }
 
-function bytesBar(value: number, max: number): string {
+function bytesBar(value: number, max: number, approx = false): string {
   const pct = Math.max(4, Math.round((value / max) * 100));
-  return `<div class="bar-wrap"><div class="bar" style="width:${pct}%"></div><span>${value} B</span></div>`;
+  return `<div class="bar-wrap"><div class="bar" style="width:${pct}%"></div><span>${approx ? '≈' : ''}${value} B</span></div>`;
 }
 
 function tableRows(rows: SignatureRow[]): string {
@@ -102,7 +102,7 @@ function tableRows(rows: SignatureRow[]): string {
         <th scope="row">${r.parameterSet}</th>
         <td>${r.nistCategory}</td>
         <td>${r.publicKeyBytes}</td>
-        <td>${r.signatureBytes}</td>
+        <td>${r.signatureNote ? `≈${r.signatureBytes}<sup title="${r.signatureNote}">†</sup>` : r.signatureBytes}</td>
         <td>${r.keygenTimeMs}</td>
         <td>${r.signTimeMs}</td>
         <td>${r.verifyTimeMs}</td>
@@ -231,7 +231,7 @@ function renderComparisonBars(): string {
       (r) => `
       <div class="bar-row">
         <div class="bar-title">${r.parameterSet}</div>
-        ${bytesBar(r.signatureBytes, max)}
+        ${bytesBar(r.signatureBytes, max, Boolean(r.signatureNote))}
       </div>
     `
     )
@@ -241,9 +241,9 @@ function renderComparisonBars(): string {
 function renderVisceralSize(): string {
   const encoder = new TextEncoder();
   const msgBytes = encoder.encode(state.message || '').length;
-  const items: { label: string; sigBytes: number }[] = [
-    { label: 'Falcon-512', sigBytes: 666 },
-    { label: 'Falcon-1024', sigBytes: 1280 },
+  const items: { label: string; sigBytes: number; approx?: string }[] = [
+    { label: 'Falcon-512', sigBytes: 666, approx: 'padded; raw ~652–657, variable' },
+    { label: 'Falcon-1024', sigBytes: 1280, approx: 'padded; raw ~1269–1275, variable' },
     { label: 'ML-DSA-44', sigBytes: 2420 },
     { label: 'ML-DSA-87', sigBytes: 4627 },
     { label: 'SLH-DSA-128s', sigBytes: 7856 }
@@ -260,7 +260,7 @@ function renderVisceralSize(): string {
           <div class="vsize-strip">
             <div class="vsize-msg" style="width:${msgPct}%" title="${msgBytes} B message"></div>
             <div class="vsize-sig" style="width:${sigPct}%" title="${it.sigBytes} B signature"></div>
-            <span class="vsize-label">${msgBytes} B msg · ${it.sigBytes} B sig</span>
+            <span class="vsize-label"${it.approx ? ` title="Falcon signature: ${it.approx}"` : ''}>${msgBytes} B msg · ${it.approx ? '≈' : ''}${it.sigBytes} B sig</span>
           </div>
         </div>
       `;
@@ -624,12 +624,13 @@ export function renderApp(root: HTMLElement): void {
               <tr><th>Parameter set</th><th>Public key (B)</th><th>Private key (B)</th><th>Signature (B)</th></tr>
             </thead>
             <tbody>
-              <tr><th scope="row">Falcon-512</th><td>897</td><td>1 281</td><td>666</td></tr>
-              <tr><th scope="row">Falcon-1024</th><td>1 793</td><td>2 305</td><td>1 280</td></tr>
+              <tr><th scope="row">Falcon-512</th><td>897</td><td>1 281</td><td>≈666<sup title="padded; raw ~652–657, variable">†</sup></td></tr>
+              <tr><th scope="row">Falcon-1024</th><td>1 793</td><td>2 305</td><td>≈1 280<sup title="padded; raw ~1269–1275, variable">†</sup></td></tr>
               <tr><th scope="row">ML-DSA-44</th><td>1 312</td><td>2 560</td><td>2 420</td></tr>
               <tr><th scope="row">SLH-DSA-128s</th><td>32</td><td>64</td><td>7 856</td></tr>
             </tbody>
           </table>
+          <p class="small-note">† ${FALCON_SIG_FOOTNOTE}</p>
         </div>
 
         <div class="actions">
@@ -730,6 +731,7 @@ export function renderApp(root: HTMLElement): void {
             </thead>
             <tbody>${tableRows(comparisonRowsLevel1)}</tbody>
           </table>
+          <p class="small-note">† ${FALCON_SIG_FOOTNOTE}</p>
           <p class="small-note">These are each scheme's smallest standard parameter set, not a like-for-like security comparison. Falcon-512 and SLH-DSA-128s claim NIST category 1; the smallest ML-DSA set, ML-DSA-44, claims category 2 (FIPS 204). ML-DSA therefore has no category-1 set to put in this row, so it is carrying a slightly higher security target than the other two.</p>
         </div>
         <div class="table-wrap" role="group" tabindex="0" aria-label="Level 5 comparison table">
@@ -750,6 +752,7 @@ export function renderApp(root: HTMLElement): void {
             </thead>
             <tbody>${tableRows(comparisonRowsLevel5)}</tbody>
           </table>
+          <p class="small-note">† ${FALCON_SIG_FOOTNOTE}</p>
         </div>
         <div class="bars">
           ${renderComparisonBars()}

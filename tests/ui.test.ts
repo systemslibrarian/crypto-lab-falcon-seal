@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { webcrypto } from 'node:crypto';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { comparisonRowsLevel1, comparisonRowsLevel5, FALCON_SIG_FOOTNOTE } from '../src/compare';
 
 // jsdom ships getRandomValues but not crypto.subtle; the demo needs both.
 Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
@@ -111,4 +112,30 @@ describe('UI smoke test (jsdom)', () => {
     await waitFor(() => text('quiz-score').includes('Quiz score: 1/5'));
     expect(localStorage.getItem('falcon-seal-quiz-v1')).toContain('q1');
   }, 120000);
+  it('qualifies Falcon signature sizes as variable-length and leaves the fixed ones bare', async () => {
+    const { renderApp } = await import('../src/ui');
+    document.body.innerHTML = '<main id="app"></main>';
+    renderApp(document.getElementById('app') as HTMLElement);
+    const html = document.body.innerHTML;
+
+    // Falcon's quoted sizes are the PADDED constants; the raw signature is
+    // variable (measured 652-657 B at n=512, 1269-1275 B at n=1024). Every
+    // place the page prints one must say so, or the number reads as exact.
+    for (const row of [...comparisonRowsLevel1, ...comparisonRowsLevel5]) {
+      if (!/^Falcon/.test(row.parameterSet)) continue;
+      expect(row.signatureNote, `${row.parameterSet} must carry a variable-length note`).toBeTruthy();
+      expect(html).toContain(`\u2248${row.signatureBytes}<sup title="${row.signatureNote}">`);
+    }
+
+    // The footnote the markers resolve to is present and is the shared wording.
+    expect(html).toContain(FALCON_SIG_FOOTNOTE);
+
+    // ML-DSA and SLH-DSA signatures are exact and fixed: no note, no marker.
+    for (const row of [...comparisonRowsLevel1, ...comparisonRowsLevel5]) {
+      if (/^Falcon/.test(row.parameterSet)) continue;
+      expect(row.signatureNote, `${row.parameterSet} must NOT be qualified`).toBeUndefined();
+      expect(html).toContain(`<td>${row.signatureBytes}</td>`);
+      expect(html).not.toContain(`\u2248${row.signatureBytes}`);
+    }
+  }, 60000);
 });

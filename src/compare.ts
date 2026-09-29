@@ -10,6 +10,14 @@ export type SignatureRow = {
   nistCategory: string;
   publicKeyBytes: number;
   signatureBytes: number;
+  /**
+   * Set ONLY where signatureBytes is not a fixed length. Falcon signatures are
+   * variable-length: signatureBytes carries the PADDED constant the spec tables
+   * quote, and this note records the raw compressed range actually produced.
+   * ML-DSA and SLH-DSA signatures are exact and fixed, so their rows leave this
+   * undefined and render bare — the asymmetry is the point.
+   */
+  signatureNote?: string;
   keygenTimeMs: number;
   signTimeMs: number;
   verifyTimeMs: number;
@@ -24,6 +32,7 @@ export const comparisonRowsLevel1: SignatureRow[] = [
     nistCategory: '1',
     publicKeyBytes: 897,
     signatureBytes: 666,
+    signatureNote: 'padded; raw ~652–657, variable',
     keygenTimeMs: 8.1,
     signTimeMs: 5.5,
     verifyTimeMs: 0.9,
@@ -63,6 +72,7 @@ export const comparisonRowsLevel5: SignatureRow[] = [
     nistCategory: '5',
     publicKeyBytes: 1793,
     signatureBytes: 1280,
+    signatureNote: 'padded; raw ~1269–1275, variable',
     keygenTimeMs: 31,
     signTimeMs: 21,
     verifyTimeMs: 1.8,
@@ -95,6 +105,14 @@ export const comparisonRowsLevel5: SignatureRow[] = [
     status: 'Very large signatures'
   }
 ];
+
+/**
+ * The single wording for the variable-length caveat. Both comparison tables and
+ * the published-sizes table resolve their marker to this, so the three cannot
+ * drift apart.
+ */
+export const FALCON_SIG_FOOTNOTE =
+  'Falcon signatures are variable-length. The quoted figures are the PADDED sizes (Falcon-512 ≈666 B, Falcon-1024 ≈1280 B); raw compressed signatures measure about 652–657 B and 1269–1275 B respectively. ML-DSA and SLH-DSA signature sizes are exact and fixed.';
 
 export const references = [
   'Falcon specification v1.2: Fouque, Kirchner, Tibouchi, Wallet, et al.',
