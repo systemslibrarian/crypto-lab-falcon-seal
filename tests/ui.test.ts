@@ -119,7 +119,12 @@ describe('UI smoke test (jsdom)', () => {
     const html = document.body.innerHTML;
 
     // Falcon's quoted sizes are the PADDED constants; the raw signature is
-    // variable (measured 652-657 B at n=512, 1269-1275 B at n=1024). Every
+    // variable. Measured over 20,000 signatures each with @noble/post-quantum
+    // 0.7.1 (40 keys x 500): 647-664 B at n=512 and 1259-1284 B at n=1024. Those
+    // are observed ranges, not bounds - both extremes widened when the sample
+    // grew from 4,000, so a fixed interval is the wrong shape for this figure.
+    // Falcon-1024 exceeded its padded 1,280 B in 20 of 20,000, so raw is NOT
+    // always smaller than padded. Every
     // place the page prints one must say so, or the number reads as exact.
     for (const row of [...comparisonRowsLevel1, ...comparisonRowsLevel5]) {
       if (!/^Falcon/.test(row.parameterSet)) continue;

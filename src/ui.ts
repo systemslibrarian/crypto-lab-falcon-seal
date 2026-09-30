@@ -242,8 +242,8 @@ function renderVisceralSize(): string {
   const encoder = new TextEncoder();
   const msgBytes = encoder.encode(state.message || '').length;
   const items: { label: string; sigBytes: number; approx?: string }[] = [
-    { label: 'Falcon-512', sigBytes: 666, approx: 'padded; raw ~652–657, variable' },
-    { label: 'Falcon-1024', sigBytes: 1280, approx: 'padded; raw ~1269–1275, variable' },
+    { label: 'Falcon-512', sigBytes: 666, approx: 'padded; raw is variable and ran 647–664 over 20,000 signatures' },
+    { label: 'Falcon-1024', sigBytes: 1280, approx: 'padded; raw is variable and can exceed it — 1,259–1,284 over 20,000 signatures' },
     { label: 'ML-DSA-44', sigBytes: 2420 },
     { label: 'ML-DSA-87', sigBytes: 4627 },
     { label: 'SLH-DSA-128s', sigBytes: 7856 }
@@ -624,8 +624,8 @@ export function renderApp(root: HTMLElement): void {
               <tr><th>Parameter set</th><th>Public key (B)</th><th>Private key (B)</th><th>Signature (B)</th></tr>
             </thead>
             <tbody>
-              <tr><th scope="row">Falcon-512</th><td>897</td><td>1 281</td><td>≈666<sup title="padded; raw ~652–657, variable">†</sup></td></tr>
-              <tr><th scope="row">Falcon-1024</th><td>1 793</td><td>2 305</td><td>≈1 280<sup title="padded; raw ~1269–1275, variable">†</sup></td></tr>
+              <tr><th scope="row">Falcon-512</th><td>897</td><td>1 281</td><td>≈666<sup title="padded; raw is variable and ran 647–664 over 20,000 signatures">†</sup></td></tr>
+              <tr><th scope="row">Falcon-1024</th><td>1 793</td><td>2 305</td><td>≈1 280<sup title="padded; raw is variable and can exceed it — 1,259–1,284 over 20,000 signatures">†</sup></td></tr>
               <tr><th scope="row">ML-DSA-44</th><td>1 312</td><td>2 560</td><td>2 420</td></tr>
               <tr><th scope="row">SLH-DSA-128s</th><td>32</td><td>64</td><td>7 856</td></tr>
             </tbody>

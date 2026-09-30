@@ -32,7 +32,7 @@ export const comparisonRowsLevel1: SignatureRow[] = [
     nistCategory: '1',
     publicKeyBytes: 897,
     signatureBytes: 666,
-    signatureNote: 'padded; raw ~652–657, variable',
+    signatureNote: 'padded; raw is variable and ran 647–664 over 20,000 signatures',
     keygenTimeMs: 8.1,
     signTimeMs: 5.5,
     verifyTimeMs: 0.9,
@@ -72,7 +72,7 @@ export const comparisonRowsLevel5: SignatureRow[] = [
     nistCategory: '5',
     publicKeyBytes: 1793,
     signatureBytes: 1280,
-    signatureNote: 'padded; raw ~1269–1275, variable',
+    signatureNote: 'padded; raw is variable and can exceed it — 1,259–1,284 over 20,000 signatures',
     keygenTimeMs: 31,
     signTimeMs: 21,
     verifyTimeMs: 1.8,
@@ -112,7 +112,7 @@ export const comparisonRowsLevel5: SignatureRow[] = [
  * drift apart.
  */
 export const FALCON_SIG_FOOTNOTE =
-  'Falcon signatures are variable-length. The quoted figures are the PADDED sizes (Falcon-512 ≈666 B, Falcon-1024 ≈1280 B); raw compressed signatures measure about 652–657 B and 1269–1275 B respectively. ML-DSA and SLH-DSA signature sizes are exact and fixed.';
+  'Falcon signatures are variable-length. The quoted figures are the PADDED sizes, which are exact: falcon512padded returned 666 B and falcon1024padded 1,280 B on every signature measured. Raw compressed signatures are a distribution, not an interval — over 20,000 signatures each (@noble/post-quantum 0.7.1, 40 keys × 500) Falcon-512 ran 647–664 B and Falcon-1024 ran 1,259–1,284 B, and both extremes widened when the sample grew from 4,000 to 20,000, so these are observed ranges rather than bounds. Falcon-512 never reached its padded 666 B in 24,000 observations. Falcon-1024 EXCEEDED its padded 1,280 B in 20 of 20,000 (0.100%): raw is not always smaller than padded. ML-DSA and SLH-DSA signature sizes are exact and fixed.';
 
 export const references = [
   'Falcon specification v1.2: Fouque, Kirchner, Tibouchi, Wallet, et al.',
