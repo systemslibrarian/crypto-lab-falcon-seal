@@ -777,13 +777,14 @@ export function renderApp(root: HTMLElement): void {
           guaranteed to fail in constant-time mode. It reproduces the <em>shape</em> of the real result; it does not independently discover it.
           The reason it is a model rather than a measurement is itself the lesson: browsers deliberately coarsen <code>performance.now()</code> to
           microseconds or worse precisely to make this class of attack unmountable from a web page, so a real 70 ns stratum cannot be observed here
-          at all. The published attacks below are real, were run on real implementations, and are cited for what they found — not as a description of
+          at all. The research notes below distinguish measured attacks from leakage simulations and are cited for what they found — not as a description of
           what this panel just did.
         </p>
         <p>
           With that said: Falcon's Gaussian sampler is the single component where most real-world attacks land. A non-constant-time sampler leaks the magnitude of each sampled coefficient through timing; aggregated over many signatures, this recovers bits of the secret key.
         </p>
         <p class="warning" role="note"><strong>Separate physical result (September 22, 2026):</strong> <a href="https://eprint.iacr.org/2026/2124" target="_blank" rel="noopener">Zhou et al., ePrint 2026/2124</a> report power-trace key recovery against PQClean Falcon signing on ARM Cortex-M4 through conversion leakage in Fast Fourier Sampling. This panel models timing only; its constant-time option is not a power-leakage countermeasure or a reproduction of that preprint.</p>
+        <p class="warning" role="note"><strong>Partial-masking caveat (published October 4, 2026):</strong> <a href="https://eprint.iacr.org/2026/2313" target="_blank" rel="noopener">Chen, ePrint 2026/2313</a> reports key recovery from share-recombination leakage in a Falcon implementation with masked preimage computation. The preprint evaluates chosen-message and filtered non-chosen-message attacks in the ELMO leakage simulator for ARM Cortex-M0: 98.3% success with 4,000 simulated traces, not hardware measurements or a general mathematical break of Falcon. A fully masked implementation prevents this particular attack; the paper also proposes a rejection-sampling countermeasure. This timing model does not reproduce that attack or evaluate masking or power resistance.</p>
         <fieldset class="sampler-mode" aria-label="Sampler mode toggle">
           <legend>Simulated sampler</legend>
           <label class="paramset-opt">
