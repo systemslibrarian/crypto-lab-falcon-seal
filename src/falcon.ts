@@ -233,8 +233,9 @@ export async function generateFalconKeyPair(set: FalconParameterSet): Promise<Fa
  * happens at THESE parameters: `generateFalconKeyPair` produces only (f, g, h)
  * and never solves the NTRU equation f·G − g·F = q, so there is no (F, G) to
  * sample against; and fast-Fourier sampling additionally needs an LDL tree over
- * R = Z[x]/(xⁿ+1) in floating point, where this module has only an integer NTT
- * mod q.
+ * R = Z[x]/(xⁿ+1) with sufficiently precise real-number arithmetic. Reference
+ * implementations use floating point; fixed-point alternatives exist (ePrint
+ * 2026/2431). This module’s integer NTT mod q provides neither sampler.
  *
  * `src/trapdoor.ts` (Panel 7) takes the other trade. It drops n from 512 to 8,
  * solves f·G − g·F = q exactly in BigInt arithmetic for the completion (F, G),

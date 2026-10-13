@@ -118,5 +118,6 @@ export const references = [
   'Falcon specification v1.2: Fouque, Kirchner, Tibouchi, Wallet, et al.',
   'Ducas & Prest (2016): Fast Fourier Orthogonalization (ISSAC 2016) — the algorithm behind Falcon Fast Fourier Sampling.',
   'NIST PQC signature context: FIPS 204 (ML-DSA) and FIPS 205 (SLH-DSA) are published; FIPS 206 (FN-DSA), the Falcon standard, is in development and has no draft yet — <a href="https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization" target="_blank" rel="noreferrer">NIST PQC standardization project</a>.',
+  'Halmans, Kumar &amp; Güneysu, <a href="https://eprint.iacr.org/2026/2431" target="_blank" rel="noreferrer">Flying, Not Floating</a> (ePrint 2026/2431, 12 October 2026): fixed-point Falcon-512/1024 on Cortex-M4; preprint, not a final standard or side-channel certification.',
   'Timing numbers are indicative reference-software style measurements and hardware-dependent.'
 ];

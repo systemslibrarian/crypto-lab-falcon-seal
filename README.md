@@ -14,7 +14,7 @@ Every statement below about what the demo "does not have" is scoped to Layer A u
 
 Sharper than the label suggests: **the Panel 2-3 signing flow does not use the private key.** `signFalconIllustrative` samples `s` from a centred Gaussian and loops on `‖s‖²` alone. The challenge `c` is computed but is not an input to the sampler, and `privateKey.f` / `privateKey.g` are never read — the message is bound afterwards, by publishing the digest of `u = h·s − c`. So the scheme is trivially forgeable, and the **Forge like a pro** button in Panel 3 runs the identical sampling loop with no private key and is accepted by the verifier. `tests/falcon.test.ts` asserts that the forgery succeeds.
 
-This is not a small unimplemented corner. Real Falcon signs by using the full trapdoor basis (f, g, F, G) to sample a short (s₁, s₂) satisfying the fixed equation s₁ + s₂·h = c. Reaching that at Falcon's own dimensions needs two substantial pieces Layer A does not have: its keygen stops at (f, g, h) and never solves the NTRU equation f·G − g·F = q, so the completing pair (F, G) does not exist *at n = 512 or 1024*; and fast-Fourier sampling additionally needs an LDL tree over R = Z[x]/(xⁿ+1) in floating point, where this build has only an integer NTT mod q.
+This is not a small unimplemented corner. Real Falcon signs by using the full trapdoor basis (f, g, F, G) to sample a short (s₁, s₂) satisfying the fixed equation s₁ + s₂·h = c. Reaching that at Falcon's own dimensions needs two substantial pieces Layer A does not have: its keygen stops at (f, g, h) and never solves the NTRU equation f·G − g·F = q, so the completing pair (F, G) does not exist *at n = 512 or 1024*; and fast-Fourier sampling additionally needs an LDL tree and sufficiently precise real-number arithmetic over R = Z[x]/(xⁿ+1), implemented with floating point in the reference software. Fixed-point alternatives exist; an integer NTT mod q alone supplies neither form of Fast Fourier Sampling.
 
 Panel 7 supplies the first of those two pieces, by dropping the dimension until an exact solve is cheap: at n = 8 it does compute (F, G), and it does sign with the completed basis. It does not supply the second — round-off stands in for the Gaussian sampler, and round-off is the NTRUSign approach that leaks the basis over a few thousand signatures (Nguyen-Regev, Eurocrypt 2006). So "(F, G) does not exist" is a statement about Layers A and C's dimensions, not about the lab.
 
@@ -90,6 +90,8 @@ npm run build && npm run test:e2e
 - [crypto-lab-multivariate](https://systemslibrarian.github.io/crypto-lab-multivariate/) — UOV, a non-lattice PQ signature family for contrast.
 
 ## References
+
+- Halmans, Kumar and Güneysu, [*Flying, Not Floating: Precise Fixed-Point Falcon on Embedded Processors*](https://eprint.iacr.org/2026/2431), ePrint 2026/2431, released 12 October 2026 — preprint reporting fixed-point Falcon-512/1024 signing on Cortex-M4, with precision and memory tradeoffs. This does not certify side-channel resistance or finalize FN-DSA; the lab does not implement that signer.
 
 - Falcon: Fast-Fourier Lattice-Based Compact Signatures over NTRU (official specification document, v1.2) — [falcon-sign.info](https://falcon-sign.info/)
 - Zhou et al. (2026), [power side-channel analysis of Falcon's Fast Fourier Sampling](https://eprint.iacr.org/2026/2124) — preprint; measured PQClean on ARM Cortex-M4, not this browser simulation.
