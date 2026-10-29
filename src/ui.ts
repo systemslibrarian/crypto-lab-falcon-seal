@@ -217,8 +217,8 @@ function latticeControls(): string {
       </label>
     </fieldset>
     <div class="actions">
-      <button id="lattice-random-btn" class="btn alt" type="button" aria-label="Place a random target on the lattice">Place random target</button>
-      <button id="lattice-clear-btn" class="btn alt" type="button" aria-label="Clear the lattice target">Clear target</button>
+      <button id="lattice-random-btn" class="btn alt" type="button" aria-label="Place random target: on the lattice">Place random target</button>
+      <button id="lattice-clear-btn" class="btn alt" type="button" aria-label="Clear target: the lattice target">Clear target</button>
     </div>
   `;
 }
@@ -572,7 +572,7 @@ export function renderApp(root: HTMLElement): void {
           </label>
         </fieldset>
         <div class="hero-actions">
-          <button id="tour-btn" class="btn" type="button" aria-label="Start the guided tour">▶ Walk me through it</button>
+          <button id="tour-btn" class="btn" type="button" aria-label="Walk me through it: start the guided tour">▶ Walk me through it</button>
           <a class="badge" href="https://github.com/systemslibrarian/crypto-lab-falcon-seal" target="_blank" rel="noreferrer" aria-label="Open GitHub repository">GitHub</a>
           <span id="quiz-score" class="chip" role="status"></span>
         </div>
@@ -650,9 +650,9 @@ export function renderApp(root: HTMLElement): void {
           <div class="actions">
             <button id="sign-btn" class="btn" type="submit" aria-label="Sign message with illustrative Falcon flow">Sign</button>
             <button id="verify-btn" class="btn alt" type="button" aria-label="Verify current signature">Verify</button>
-            <button id="tamper-btn" class="btn alt" type="button" aria-label="Tamper message and verify failure">Tamper test</button>
+            <button id="tamper-btn" class="btn alt" type="button" aria-label="Tamper test: tamper the message and verify it fails">Tamper test</button>
             <button id="copy-btn" class="btn alt" type="button" aria-label="Copy as JSON: the signature">Copy as JSON</button>
-            <button id="share-btn" class="btn alt" type="button" aria-label="Copy a shareable link that preloads this message">Copy share link</button>
+            <button id="share-btn" class="btn alt" type="button" aria-label="Copy share link: a shareable link that preloads this message">Copy share link</button>
             <span class="status-chip recommended">RECOMMENDED (size-constrained environments)</span>
           </div>
         </form>
@@ -678,9 +678,9 @@ export function renderApp(root: HTMLElement): void {
           In real Falcon, a signature must be a <strong>short</strong> vector that <strong>satisfies the verification equation</strong> s₁ + s₂·h = c — and finding a short solution without the trapdoor is the hard lattice problem. Probe both requirements, and then find this demo's own weak spot:
         </p>
         <div class="actions">
-          <button id="forge-btn" class="btn alt" type="button" aria-label="Attempt a forgery with a random signature vector">Try to forge (random s)</button>
-          <button id="flip-btn" class="btn alt" type="button" aria-label="Flip one coefficient of the current signature and re-verify">Flip one coefficient of s</button>
-          <button id="forge-pro-btn" class="btn alt" type="button" aria-label="Forge with a short Gaussian vector and expose the toy scheme's weakness">Forge like a pro (short s)</button>
+          <button id="forge-btn" class="btn alt" type="button" aria-label="Try to forge (random s): attempt a forgery with a random signature vector">Try to forge (random s)</button>
+          <button id="flip-btn" class="btn alt" type="button" aria-label="Flip one coefficient of s: of the current signature, then re-verify">Flip one coefficient of s</button>
+          <button id="forge-pro-btn" class="btn alt" type="button" aria-label="Forge like a pro (short s): forge with a short Gaussian vector and expose the toy scheme's weakness">Forge like a pro (short s)</button>
         </div>
         <div id="forge-info" class="output" aria-live="polite"></div>
 
@@ -692,7 +692,7 @@ export function renderApp(root: HTMLElement): void {
           </p>
           <textarea id="paste-input" rows="6" aria-label="Signature JSON to verify" placeholder='{"scheme":"Falcon-512", ...}'></textarea>
           <div class="actions">
-            <button id="paste-verify-btn" class="btn alt" type="button" aria-label="Verify the pasted signature JSON">Verify pasted signature</button>
+            <button id="paste-verify-btn" class="btn alt" type="button" aria-label="Verify pasted signature: the pasted signature JSON">Verify pasted signature</button>
           </div>
           <div id="paste-info" class="output" aria-live="polite"></div>
         </details>
@@ -798,7 +798,7 @@ export function renderApp(root: HTMLElement): void {
           </label>
         </fieldset>
         <div class="actions">
-          <button id="sample-btn" class="btn alt" type="button" aria-label="Run 512 simulated samples and chart their timings">Run 512 samples</button>
+          <button id="sample-btn" class="btn alt" type="button" aria-label="Run 512 samples: simulated, charting their timings">Run 512 samples</button>
         </div>
         <div id="timing-viz" class="timing-viz" aria-live="polite">
           ${renderTimingHistogram([])}
@@ -808,7 +808,7 @@ export function renderApp(root: HTMLElement): void {
           The histogram shows the leak exists. This runs the attacker's side: observe <em>only the timings</em> of many signatures, correlate them against sample magnitude, and read the secret distribution out of the timing strata. Toggle the sampler mode above and run it against both.
         </p>
         <div class="actions">
-          <button id="attack-btn" class="btn alt" type="button" aria-label="Simulate a timing attack over 200 observed signatures">Attack: observe 200 signatures</button>
+          <button id="attack-btn" class="btn alt" type="button" aria-label="Attack: observe 200 signatures and simulate a timing attack over them">Attack: observe 200 signatures</button>
         </div>
         <div id="attack-viz" class="timing-viz" aria-live="polite">
           ${renderAttack()}
@@ -846,7 +846,7 @@ export function renderApp(root: HTMLElement): void {
           real key generation, real signing of your Panel 3 message, real verification, real byte counts and timings.
         </p>
         <div class="actions">
-          <button id="real-falcon-btn" class="btn" type="button" aria-label="Run real Falcon-1024 keygen, sign, and verify in WebAssembly">Run real Falcon-1024 on your message</button>
+          <button id="real-falcon-btn" class="btn" type="button" aria-label="Run real Falcon-1024 on your message: keygen, sign and verify in WebAssembly">Run real Falcon-1024 on your message</button>
         </div>
         <div id="real-falcon-info" class="output" aria-live="polite"></div>
         <p class="small-note">
