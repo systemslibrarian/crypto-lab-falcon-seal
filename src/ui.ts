@@ -651,7 +651,7 @@ export function renderApp(root: HTMLElement): void {
             <button id="sign-btn" class="btn" type="submit" aria-label="Sign message with illustrative Falcon flow">Sign</button>
             <button id="verify-btn" class="btn alt" type="button" aria-label="Verify current signature">Verify</button>
             <button id="tamper-btn" class="btn alt" type="button" aria-label="Tamper message and verify failure">Tamper test</button>
-            <button id="copy-btn" class="btn alt" type="button" aria-label="Copy signature as JSON">Copy as JSON</button>
+            <button id="copy-btn" class="btn alt" type="button" aria-label="Copy as JSON: the signature">Copy as JSON</button>
             <button id="share-btn" class="btn alt" type="button" aria-label="Copy a shareable link that preloads this message">Copy share link</button>
             <span class="status-chip recommended">RECOMMENDED (size-constrained environments)</span>
           </div>
