@@ -6,6 +6,14 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Least privilege for every job that does not ask for more. test-and-build only
+# reads this repository: it checks out, installs, tests, builds and uploads an
+# artifact on failure, and upload-artifact authenticates with the runner's own
+# token rather than this one. dependabot-auto-merge declares its own wider block
+# below, which overrides this for that job alone.
+permissions:
+  contents: read
+
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
