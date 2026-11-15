@@ -20,6 +20,15 @@ export type FalconParameterSet = {
   publishedPrivateKeyBytes: number;
   publishedSignatureBytes: number;
   /**
+   * The standard deviation σ that Falcon samples SIGNATURES at, from the
+   * specification's own parameter table (v1.2, Table 3.3). It differs between
+   * the two sets -- 165.736617183 at n=512 and 168.388571447 at n=1024 -- so no
+   * single figure covers both, and it is nothing like the σ = 1.2 this demo's
+   * sampler uses. Not to be confused with σ_{f,g}, the much smaller deviation
+   * the KEY polynomials are drawn at.
+   */
+  publishedSignatureSigma: number;
+  /**
    * The bound this demo enforces. It is calibrated to this build's σ = 1.2
    * sampler so the rejection loop stays visible on screen, and it is NOT
    * Falcon's β². Anywhere it is shown to a learner it must be labelled as a
@@ -36,6 +45,7 @@ export const FALCON_512: FalconParameterSet = {
   publishedPublicKeyBytes: 897,
   publishedPrivateKeyBytes: 1281,
   publishedSignatureBytes: 666,
+  publishedSignatureSigma: 165.736617183,
   // DEMO CONSTANT — not Falcon's bound. Tuned via scripts/verify-bounds.mjs
   // against the clamped σ=1.2 Box–Muller sampler (E[s_i²] ≈ 1.55) so that
   // ~67% of attempts are accepted at n=512, which keeps the on-screen rejection
@@ -53,6 +63,7 @@ export const FALCON_1024: FalconParameterSet = {
   publishedPublicKeyBytes: 1793,
   publishedPrivateKeyBytes: 2305,
   publishedSignatureBytes: 1280,
+  publishedSignatureSigma: 168.388571447,
   // DEMO CONSTANT, same story as Falcon-512 above. Falcon-1024's real bound is
   // ⌊β²⌋ = 70,265,242.
   rejectionBoundSqNorm: 1580,

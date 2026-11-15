@@ -290,8 +290,8 @@ function renderTimingHistogram(samples: TimingSample[]): string {
     .join('');
   const verdict =
     state.samplerMode === 'leaky'
-      ? `Wide spread (${min}–${max} ns, modelled — see the warning above). Timing correlates with |sample| by construction, standing in for a real sampler that short-circuits early. Against such a sampler an attacker reading these timings can recover bits of the secret distribution: the Espitau et al. 2017 attack vector.`
-      : `Tight cluster (${min}–${max} ns, modelled — see the warning above). Time is made independent of the sampled value, standing in for a fixed table walk. This is what Falcon §3.8 requires.`;
+      ? `Wide spread (${min}–${max} ns, modelled — see the warning above). Timing correlates with |sample| by construction, standing in for a real sampler that short-circuits early. Against such a sampler an attacker reading these timings can recover bits of the secret distribution. Espitau et al. (CCS 2017) exploited exactly this variable-time BLISS sampler, but by branch tracing and electromagnetic analysis rather than by timing it; the statistical timing form modelled here is Groot Bruinderink et al. (CHES 2016).`
+      : `Tight cluster (${min}–${max} ns, modelled — see the warning above). Time is made independent of the sampled value, standing in for a fixed table walk. This is what Falcon §3.9.3 requires of its integer sampler.`;
   return `
     <div class="histo" role="img" aria-label="Per-sample timing histogram">${cols}</div>
     <p class="small-note">${verdict}</p>
@@ -355,7 +355,7 @@ function renderAttempts(): string {
         ${bound} is this demo's own bound, tuned so the loop above runs a legible 1–3 times against this build's σ = 1.2 sampler.
         ${set.name}'s real bound is ⌊β²⌋ = ${set.publishedRejectionBoundSqNorm.toLocaleString()} — around
         ${Math.round(set.publishedRejectionBoundSqNorm / bound).toLocaleString()}× larger, because it applies to the pair (s₁, s₂) across 2n
-        coefficients sampled at σ ≈ 165.7, not to n coefficients at σ = 1.2. Do not read the number on the left as a Falcon parameter.
+        coefficients sampled at σ ≈ ${set.publishedSignatureSigma.toFixed(2)}, not to n coefficients at σ = 1.2. Do not read the number on the left as a Falcon parameter.
       </p>
     </div>
   `;
@@ -399,7 +399,7 @@ function renderAttack(): string {
   const verdict = attack.done
     ? leaky
       ? `<strong>Attack succeeded — against the model.</strong> Timing explains ${pct}% of the variance in |sample| (r = ${last.correlation.toFixed(3)}), and the timing strata alone recover the sampler's σ ≈ ${sigma?.toFixed(2) ?? '—'} (true σ = 1.20). Remember what that means here: the timings were computed as <code>820 + (|sample| + 1) × 70 + jitter</code>, so the correlation is recovering a formula this page wrote a moment ago, not a physical leak. The real result it stands in for: Espitau et al. (CCS 2017) turned exactly this class of sampler leakage into full BLISS key recovery — <em>a single</em> execution of strongSwan's signing routine sufficed via branch tracing, as did one electromagnetic trace on an 8-bit microcontroller. The purely statistical form shown here is slower but still cheap: roughly 450 signatures with a perfect cache channel, under 3 500 in practice (Groot Bruinderink et al., CHES 2016).`
-      : `<strong>Attack failed.</strong> After ${last.signaturesObserved} signatures, correlation r = ${last.correlation.toFixed(3)} — statistically nothing${sigma === null ? ', and the timings form a single stratum, so no magnitudes can be read out' : ''}. Constant-time sampling starves the attacker of signal, which is why Falcon §3.8 mandates it.`
+      : `<strong>Attack failed.</strong> After ${last.signaturesObserved} signatures, correlation r = ${last.correlation.toFixed(3)} — statistically nothing${sigma === null ? ', and the timings form a single stratum, so no magnitudes can be read out' : ''}. Constant-time sampling starves the attacker of signal, which is why Falcon specifies its own integer sampler as isochronous (§3.9.3).`
     : `Observing… ${last.signaturesObserved} signatures (${last.samplesObserved.toLocaleString()} sampler timings) so far. Correlation r = ${last.correlation.toFixed(3)}.`;
   return `
     <div class="attack-block">
@@ -498,7 +498,7 @@ const quizzes: Record<string, Quiz> = {
       { text: 'Constant-time code is required by JavaScript engines.' }
     ],
     explanation:
-      'Espitau, Fouque, Gérard, Tibouchi (2017) demonstrated practical key recovery on BLISS via timing of the Gaussian sampler. Falcon faces an analogous risk — see Falcon spec §3.8.'
+      'Espitau, Fouque, Gérard & Tibouchi (ACM CCS 2017) demonstrated full key recovery on BLISS from its variable-time Gaussian sampler — read by branch tracing on a desktop CPU and by electromagnetic analysis on an 8-bit microcontroller, not by timing measurement. Falcon faces an analogous risk, which is why its integer sampler is specified to be isochronous — see Falcon spec §3.9.3.'
   }
 };
 
@@ -577,7 +577,7 @@ export function renderApp(root: HTMLElement): void {
           <span id="quiz-score" class="chip" role="status"></span>
         </div>
         <p class="small-note">
-          Naming note: NIST will standardize this design as <strong>FN-DSA</strong> (FFT-over-NTRU-lattice Digital Signature Algorithm) in <strong>FIPS 206 (in development)</strong> — the same dual naming ML-DSA/Dilithium and SLH-DSA/SPHINCS+ went through. FIPS 206 has not been drafted yet, so FN-DSA is a selected-and-named algorithm rather than a published standard.
+          Naming note: NIST will standardize this design as <strong>FN-DSA</strong> (FFT-over-NTRU-lattice Digital Signature Algorithm) in <strong>FIPS 206 (in development)</strong> — the same dual naming ML-DSA/Dilithium and SLH-DSA/SPHINCS+ went through. As of 15 November 2026 FIPS 206 has no published draft: NIST's FIPS list carries only 203, 204 and 205, all final on 13 August 2024, and NIST's PQC project page (updated 27 October 2026) says only that Falcon "was selected for ongoing standardization; that process is underway". FN-DSA is a selected-and-named algorithm rather than a published standard.
         </p>
       </div>
 
@@ -657,7 +657,7 @@ export function renderApp(root: HTMLElement): void {
           </div>
         </form>
         <p>
-          <strong>In real Falcon:</strong> the signer hashes the message with a fresh nonce, derives a sparse challenge polynomial c, and then uses the trapdoor basis (f, g, F, G) to sample a <em>short</em> pair (s₁, s₂) that satisfies the fixed equation s₁ + s₂·h = c. The challenge dictates what s must satisfy; finding a short solution to it without the trapdoor is the hard lattice problem.
+          <strong>In real Falcon:</strong> the signer hashes the message with a fresh nonce into a challenge polynomial c whose every coefficient is uniform mod q — HashToPoint, spec v1.2 §3.7 Algorithm 3; it is <em>not</em> sparse, and the weight-40 ±1 c this demo draws is a demo choice — and then uses the trapdoor basis (f, g, F, G) to sample a <em>short</em> pair (s₁, s₂) that satisfies the fixed equation s₁ + s₂·h = c. The challenge dictates what s must satisfy; finding a short solution to it without the trapdoor is the hard lattice problem.
         </p>
         <p class="warning" role="note" aria-label="Signing fidelity warning">
           <strong>In this demo, signing does not do that.</strong> <code>signFalconIllustrative</code> samples s from a centred Gaussian and loops only until ‖s‖² falls under the bound — c is not an input to the sampler, and the private key (f, g) is never read. The message is bound afterwards, by publishing the digest of u = h·s − c. So the two verifier checks below are real and both genuinely fail on tampering, but they do <em>not</em> establish that a private key was involved. The <strong>Forge like a pro</strong> button in the Forgery playground proves it. This is not fixable by editing the sampler: this build's keygen produces only (f, g, h) and never solves the NTRU equation f·G − g·F = q, so there is no full basis (F, G) to sample against and no fast-Fourier sampler over it.
@@ -702,7 +702,7 @@ export function renderApp(root: HTMLElement): void {
       <section class="panel" id="panel-4" aria-labelledby="p4-title">
         <h2 id="p4-title">Panel 4 — Falcon vs ML-DSA vs SLH-DSA</h2>
         <p class="small-note">
-          Size fields use published NIST submission parameter values. Timing columns are indicative reference-software measurements and hardware-dependent.
+          Size fields use published NIST submission parameter values. The Falcon timing cells are the specification's own reference-implementation figures (Falcon v1.2 §4.5: an Intel Core i5-8259U at 2.3 GHz with TurboBoost disabled), converted from signatures and verifications per second. The ML-DSA and SLH-DSA timing cells are indicative only and are not quoted from any table cited here. All timings are hardware-dependent.
         </p>
         <div class="chip-row">
           <span class="status-chip">Falcon — smallest signatures, highest implementation care</span>
@@ -791,7 +791,7 @@ export function renderApp(root: HTMLElement): void {
           <legend>Simulated sampler</legend>
           <label class="paramset-opt">
             <input type="radio" name="sampler-mode" value="constant-time" ${state.samplerMode === 'constant-time' ? 'checked' : ''} />
-            <span>Constant-time (Falcon §3.8 compliant)</span>
+            <span>Constant-time (Falcon §3.9.3 compliant)</span>
           </label>
           <label class="paramset-opt">
             <input type="radio" name="sampler-mode" value="leaky" ${state.samplerMode === 'leaky' ? 'checked' : ''} />
@@ -815,7 +815,7 @@ export function renderApp(root: HTMLElement): void {
           ${renderAttack()}
         </div>
         <p class="warning" role="note">
-          <strong>References:</strong> Espitau, Fouque, Gérard &amp; Tibouchi, "Side-Channel Attacks on BLISS Lattice-Based Signatures" (ACM CCS 2017, ePrint 2017/505) — full key recovery from a single strongSwan signing execution via branch tracing, and from a single electromagnetic trace on an 8-bit microcontroller. Groot Bruinderink, Hülsing, Lange &amp; Yarom, "Flush, Gauss, and Reload" (CHES 2016, ePrint 2016/300) — the statistical variant modelled here, recovering a BLISS key from about 450 signatures with a perfect side-channel and under 3 500 in practice. Falcon spec §3.8 mandates constant-time sampling for production implementations.
+          <strong>References:</strong> Espitau, Fouque, Gérard &amp; Tibouchi, "Side-Channel Attacks on BLISS Lattice-Based Signatures" (ACM CCS 2017, ePrint 2017/505) — full key recovery from a single strongSwan signing execution via branch tracing, and from a single electromagnetic trace on an 8-bit microcontroller. Groot Bruinderink, Hülsing, Lange &amp; Yarom, "Flush, Gauss, and Reload" (CHES 2016, ePrint 2016/300) — the statistical variant modelled here, recovering a BLISS key from about 450 signatures with a perfect side-channel and under 3 500 in practice. Falcon spec §3.9.3 specifies its integer sampler SamplerZ as isochronous and notes that its comparisons must be realized in constant time for the scheme to resist timing attacks; production implementations have to preserve that.
         </p>
 
         <h3>When to choose each algorithm</h3>
@@ -851,10 +851,13 @@ export function renderApp(root: HTMLElement): void {
         </div>
         <div id="real-falcon-info" class="output" aria-live="polite"></div>
         <p class="small-note">
-          This build exposes Falcon-1024 with the fixed-size <em>padded</em> signature format: 1 header byte + 40-byte salt + padded body = 1,330 B,
-          per PQClean's <code>CRYPTO_BYTES</code>. The number you will see reported above is <strong>1,332 B</strong>, because the
-          <code>falcon-crypto</code> WebAssembly wrapper prepends a 2-byte length prefix to the PQClean output. The variable-size compressed format
-          from the spec averages ≈1,280 B — all three are real numbers describing the same signature at different layers.
+          This build emits Falcon's <em>variable-length compressed</em> signature inside a fixed-size buffer. 1,330 B is PQClean's
+          <code>CRYPTO_BYTES</code> for falcon-1024 — the <em>maximum</em> length that encoding can reach, not a padded format. The number you
+          will see reported above is <strong>1,332 B</strong>, because the <code>falcon-crypto</code> WebAssembly wrapper prepends a 2-byte
+          little-endian length prefix and hands back the whole buffer; the signature proper is the length that prefix names, and the tail is
+          unused zero fill — which is why flipping the last byte still verifies. Falcon's own <em>padded</em> format is a fixed 1,280 B for
+          Falcon-1024 (spec v1.2 Table 3.3, <code>sbytelen</code>); unpadded signatures have no fixed size and are on average slightly shorter
+          than padded ones (spec §3.11.3).
         </p>
       </section>
 
@@ -1396,8 +1399,9 @@ function bindEvents(root: HTMLElement): void {
             </table>
           </div>
           <p class="small-note">
-            Published Falcon-1024 sizes: public key 1,793 B · signature ≈1,280 B compressed. This build uses the fixed 1,330-byte padded format, and the
-            ${run.signatureBytes} B measured above is that plus the 2-byte length prefix the <code>falcon-crypto</code> WASM wrapper adds.
+            Published Falcon-1024 sizes: public key 1,793 B · signature 1,280 B padded (spec v1.2 Table 3.3). This build emits the variable-length
+            compressed format inside PQClean's 1,330-byte maximum buffer, and the ${run.signatureBytes} B measured above is that buffer plus the
+            2-byte length prefix the <code>falcon-crypto</code> WASM wrapper adds.
             ${illustrativeBytes ? `Compare the illustrative flow's simulated payload above: ${illustrativeBytes} B — same order of magnitude, none of the constant-time engineering.` : 'Sign a message in Panel 3 to compare against the illustrative flow.'}
           </p>
         `;
@@ -1450,7 +1454,7 @@ function bindEvents(root: HTMLElement): void {
       {
         target: '#panel-3',
         title: 'Sign: hash, then sample short (but not for c)',
-        body: 'The message is hashed with a fresh nonce into a sparse challenge polynomial c. Real Falcon would now use the trapdoor basis to sample a short s solving s₁ + s₂·h = c. This panel does not: it samples s from a centred Gaussian, ignores c while doing so, never touches the private key, and binds the message afterwards by publishing the digest of u = h·s − c. Panel 7 does it the real way, at n = 8. Watch the loop below — it is a genuine rejection loop, but it rejects on length alone.',
+        body: 'The message is hashed with a fresh nonce into a challenge polynomial c — sparse here, but uniform mod q in every coefficient in real Falcon (spec §3.7, Algorithm 3). Real Falcon would now use the trapdoor basis to sample a short s solving s₁ + s₂·h = c. This panel does not: it samples s from a centred Gaussian, ignores c while doing so, never touches the private key, and binds the message afterwards by publishing the digest of u = h·s − c. Panel 7 does it the real way, at n = 8. Watch the loop below — it is a genuine rejection loop, but it rejects on length alone.',
         action: () => root.querySelector<HTMLFormElement>('#sign-form')?.requestSubmit()
       },
       {

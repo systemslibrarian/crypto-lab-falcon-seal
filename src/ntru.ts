@@ -112,7 +112,8 @@ export function challengeFromHash(hashBytes: Uint8Array, n: number, weight = 40)
 //   - 'constant-time': time is independent of the sampled value (fixed CDF table walk).
 //   - 'leaky': time grows with |sample|, mimicking a non-constant-time CDF sampler
 //             that short-circuits early. This is the failure mode Espitau et al. (2017)
-//             exploited against BLISS and that Falcon §3.8 warns against.
+//             exploited against BLISS and that Falcon §3.9.3 guards against by
+//             specifying an isochronous sampler.
 export type SamplerMode = 'constant-time' | 'leaky';
 export type TimingSample = { value: number; nanos: number };
 

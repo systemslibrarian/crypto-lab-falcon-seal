@@ -1,8 +1,13 @@
-// Timing-attack teaching aid. Plays the attacker's side of Espitau, Fouque,
-// Gérard & Tibouchi (2017): observe only per-sample timings from many signatures,
-// correlate them with the (secret) sampled magnitudes, and watch how much of the
-// sampler's output distribution leaks. Against a constant-time sampler the same
-// analysis flatlines.
+// Timing-attack teaching aid. Plays the attacker's side of the purely
+// STATISTICAL timing attack on a variable-time Gaussian sampler (Groot
+// Bruinderink, Hülsing, Lange & Yarom, CHES 2016): observe only per-sample
+// timings from many signatures, correlate them with the (secret) sampled
+// magnitudes, and watch how much of the sampler's output distribution leaks.
+// Against a constant-time sampler the same analysis flatlines.
+//
+// The underlying BLISS sampler leak is Espitau, Fouque, Gérard & Tibouchi
+// (ACM CCS 2017), but that paper reads it by branch tracing and electromagnetic
+// analysis, NOT by measuring time -- so it is not the attack modelled here.
 
 import { simulateSamplerTimings, type SamplerMode, type TimingSample } from './ntru';
 

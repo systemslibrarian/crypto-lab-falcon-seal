@@ -33,9 +33,15 @@ export const comparisonRowsLevel1: SignatureRow[] = [
     publicKeyBytes: 897,
     signatureBytes: 666,
     signatureNote: 'padded; raw is variable and ran 647–664 over 20,000 signatures',
-    keygenTimeMs: 8.1,
-    signTimeMs: 5.5,
-    verifyTimeMs: 0.9,
+    /* These three were unsourced constants described on the page as
+       reference-software measurements, while sitting 25 to 60 times above the
+       specification's own reference-implementation table. Replaced with that
+       table (Falcon v1.2 §4.5, Intel Core i5-8259U at 2.3 GHz, TurboBoost
+       disabled, fully constant-time AVX2/FMA build): keygen 8.64 ms, 5,948.1
+       signatures/s -> 0.17 ms, 27,933.0 verifications/s -> 0.036 ms. */
+    keygenTimeMs: 8.64,
+    signTimeMs: 0.17,
+    verifyTimeMs: 0.036,
     securityAssumption: 'NTRU lattice (SIS/R-SIS style hardness in NTRU setting)',
     implementationComplexity: 'High (FFT + Gaussian sampler)',
     status: 'Recommended for size-constrained deployments'
@@ -73,9 +79,11 @@ export const comparisonRowsLevel5: SignatureRow[] = [
     publicKeyBytes: 1793,
     signatureBytes: 1280,
     signatureNote: 'padded; raw is variable and can exceed it — 1,259–1,284 over 20,000 signatures',
-    keygenTimeMs: 31,
-    signTimeMs: 21,
-    verifyTimeMs: 1.8,
+    /* Same table, degree 1024: keygen 27.45 ms, 2,913.0 signatures/s ->
+       0.34 ms, 13,650.0 verifications/s -> 0.073 ms. See the Falcon-512 row. */
+    keygenTimeMs: 27.45,
+    signTimeMs: 0.34,
+    verifyTimeMs: 0.073,
     securityAssumption: 'NTRU lattice',
     implementationComplexity: 'High (sampler subtlety)',
     status: 'Compact at NIST Level 5'
@@ -115,9 +123,9 @@ export const FALCON_SIG_FOOTNOTE =
   'Falcon signatures are variable-length. The quoted figures are the PADDED sizes, which are exact: falcon512padded returned 666 B and falcon1024padded 1,280 B on every signature measured. Raw compressed signatures are a distribution, not an interval — over 20,000 signatures each (@noble/post-quantum 0.7.1, 40 keys × 500) Falcon-512 ran 647–664 B and Falcon-1024 ran 1,259–1,284 B, and both extremes widened when the sample grew from 4,000 to 20,000, so these are observed ranges rather than bounds. Falcon-512 never reached its padded 666 B in 24,000 observations. Falcon-1024 EXCEEDED its padded 1,280 B in 20 of 20,000 (0.100%): raw is not always smaller than padded. ML-DSA and SLH-DSA signature sizes are exact and fixed.';
 
 export const references = [
-  'Falcon specification v1.2: Fouque, Kirchner, Tibouchi, Wallet, et al.',
+  'Falcon specification v1.2 (01/10/2020): Fouque, Hoffstein, Kirchner, Lyubashevsky, Pornin, Prest, Ricosset, Seiler, Whyte &amp; Zhang — the ten authors on its title page.',
   'Ducas & Prest (2016): Fast Fourier Orthogonalization (ISSAC 2016) — the algorithm behind Falcon Fast Fourier Sampling.',
-  'NIST PQC signature context: FIPS 204 (ML-DSA) and FIPS 205 (SLH-DSA) are published; FIPS 206 (FN-DSA), the Falcon standard, is in development and has no draft yet — <a href="https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization" target="_blank" rel="noreferrer">NIST PQC standardization project</a>.',
+  'NIST PQC signature context: FIPS 204 (ML-DSA) and FIPS 205 (SLH-DSA) are published; FIPS 206 (FN-DSA), the Falcon standard, is in development and had no published draft when this was last checked on 15 November 2026 — NIST\'s FIPS list carried only 203, 204 and 205, and its <a href="https://csrc.nist.gov/projects/post-quantum-cryptography" target="_blank" rel="noreferrer">PQC project page</a> (updated 27 October 2026) says only that Falcon\'s standardization process is underway.',
   'Halmans, Kumar &amp; Güneysu, <a href="https://eprint.iacr.org/2026/2431" target="_blank" rel="noreferrer">Flying, Not Floating</a> (ePrint 2026/2431, 12 October 2026): fixed-point Falcon-512/1024 on Cortex-M4; preprint, not a final standard or side-channel certification.',
-  'Timing numbers are indicative reference-software style measurements and hardware-dependent.'
+  'Falcon timings are the specification\'s own reference-implementation figures (Falcon v1.2 §4.5, Intel Core i5-8259U at 2.3 GHz with TurboBoost disabled), converted from signatures and verifications per second. The ML-DSA and SLH-DSA timings are indicative only and are not quoted from any table cited here. All timings are hardware-dependent.'
 ];

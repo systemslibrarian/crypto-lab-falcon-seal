@@ -8,11 +8,20 @@
  *   - Falcon signing is RANDOMIZED. Two signatures over the same message with
  *     the same key differ, so no (message, key) -> signature vector can be
  *     asserted. Confirmed by signing 'abc' twice and comparing.
- *   - The signature ENCODING differs from the reference's compressed format.
- *     This build emits the fixed 1,330-byte padded format plus a 2-byte length
- *     prefix the falcon-crypto wrapper adds, so a reference KAT signature would
- *     be rejected for framing rather than for being wrong -- a format mismatch
- *     reported as a correctness finding, which is the thing this fleet refuses.
+ *   - The signature FRAMING differs from the reference's. This build returns a
+ *     fixed 1,332-byte buffer: a 2-byte little-endian length prefix the
+ *     falcon-crypto wrapper adds, then PQClean's 1,330-byte CRYPTO_BYTES buffer
+ *     holding the variable-length COMPRESSED signature and zero fill. A
+ *     reference KAT signature would be rejected for framing rather than for
+ *     being wrong -- a format mismatch reported as a correctness finding, which
+ *     is the thing this fleet refuses.
+ *
+ *     1,330 is NOT Falcon's padded format. Falcon-1024's padded signature is a
+ *     fixed 1,280 B (specification v1.2, Table 3.3, sbytelen); 1,330 is the
+ *     maximum the variable-length compressed encoding can reach, which is what
+ *     PQClean sizes its output buffer to. The page used to call 1,330 the
+ *     padded format and 1,280 the compressed average, which is backwards, and
+ *     this file repeated it.
  *
  * What IS published and assertable are the Falcon-1024 PARAMETER sizes, which
  * src/falcon.ts already carries as publishedPublicKeyBytes / privateKeyBytes /
@@ -37,9 +46,12 @@ const load = async (): Promise<FalconWasm> => {
 };
 
 /* The wrapper's own framing, stated in src/ui.ts beside the figure it explains:
-   the padded format plus a 2-byte length prefix. */
-const PADDED_FORMAT_BYTES = 1330;
+   PQClean's CRYPTO_BYTES buffer plus a 2-byte length prefix. */
+const PQCLEAN_CRYPTO_BYTES = 1330;
 const WRAPPER_LENGTH_PREFIX_BYTES = 2;
+/* Falcon-1024's PADDED signature length, specification v1.2 Table 3.3. This is
+   the figure the page quotes as published, and it is NOT what this build emits. */
+const SPEC_PADDED_BYTES = 1280;
 
 describe('the real Falcon build against the published Falcon-1024 figures', () => {
   it('its key sizes equal the published parameter sizes', async () => {
@@ -49,15 +61,47 @@ describe('the real Falcon build against the published Falcon-1024 figures', () =
     expect(kp.privateKey.length).toBe(FALCON_1024.publishedPrivateKeyBytes);
   }, 60_000);
 
-  it('its signature size is the padded format plus the wrapper prefix, as the page says', async () => {
+  it('its signature size is PQClean\'s buffer plus the wrapper prefix, as the page says', async () => {
     const falcon = await load();
     const kp = await falcon.keyPair();
     const sig = await falcon.signDetached(new TextEncoder().encode('abc'), kp.privateKey);
-    expect(sig.length).toBe(PADDED_FORMAT_BYTES + WRAPPER_LENGTH_PREFIX_BYTES);
-    /* And it is LARGER than the published compressed size, which is the thing
+    expect(sig.length).toBe(PQCLEAN_CRYPTO_BYTES + WRAPPER_LENGTH_PREFIX_BYTES);
+    /* And it is LARGER than the published padded size, which is the thing
        the page's note exists to explain rather than hide. */
     expect(sig.length).toBeGreaterThan(FALCON_1024.publishedSignatureBytes);
   }, 60_000);
+
+  /* The buffer is not Falcon's padded format, and this pins the two facts that
+     prove it: the published padded length is 1,280 B, and what the wrapper hands
+     back is a 2-byte little-endian length prefix naming a SHORTER, variable
+     compressed signature, with the rest zero fill. If the page ever goes back to
+     calling 1,330 "the padded format", these fail. */
+  it('what it emits is the variable-length compressed signature, not the 1,280-byte padded format', async () => {
+    const falcon = await load();
+    const kp = await falcon.keyPair();
+    const m = new TextEncoder().encode('abc');
+
+    expect(FALCON_1024.publishedSignatureBytes).toBe(SPEC_PADDED_BYTES);
+    expect(PQCLEAN_CRYPTO_BYTES).not.toBe(SPEC_PADDED_BYTES);
+
+    const lengths = new Set<number>();
+    for (let i = 0; i < 6; i += 1) {
+      const sig = await falcon.signDetached(m, kp.privateKey);
+      const declared = sig[0] | (sig[1] << 8); // little-endian length prefix
+      /* The prefix names the real signature; everything after it is zero fill. */
+      let trailingZeros = 0;
+      for (let j = sig.length - 1; j >= 0 && sig[j] === 0; j -= 1) trailingZeros += 1;
+      expect(declared + WRAPPER_LENGTH_PREFIX_BYTES + trailingZeros).toBe(sig.length);
+      /* Variable, and below BOTH the buffer size and the padded length. */
+      expect(declared).toBeLessThan(PQCLEAN_CRYPTO_BYTES);
+      expect(declared).toBeLessThan(SPEC_PADDED_BYTES);
+      lengths.add(declared);
+    }
+    /* Six signatures over one message and one key did not all come out the same
+       length: that is what "variable-length" means, and a padded format could
+       not do it. */
+    expect(lengths.size).toBeGreaterThan(1);
+  }, 120_000);
 
   it('signing is randomized, so no sign-KAT could be pinned', async () => {
     const falcon = await load();
@@ -91,15 +135,18 @@ describe('the verify contract the demo rests on', () => {
 
   /* ASSERTED ON PURPOSE, because it surprised me and it is a property of the
      format rather than a defect.
-     This build emits the FIXED 1,330-byte padded format, so the tail is
-     padding the verifier does not cover: flipping the final byte leaves the
-     signature valid. My first version of the test above flipped exactly that
+     This build returns a FIXED-SIZE 1,330-byte buffer holding a shorter
+     variable-length compressed signature, so the tail is zero fill the verifier
+     does not cover: flipping the final byte leaves the signature valid. (Under
+     Falcon's real padded format, specification v1.2 section 3.11.3, that byte
+     would be covered: all padding bytes must be zero for the signature to be
+     valid.) My first version of the test above flipped exactly that
      byte and read the `true` as a verification failure -- a conclusion about
      the lab drawn from my own choice of byte. The lab's own tamper check does
      the right thing: src/real-falcon.ts:56 alters the MESSAGE, which fails.
      Pinning it here documents where the format's covered region ends, and
      would catch a wrapper change that began trimming or covering the padding. */
-  it('the trailing byte is padding, and flipping it does NOT invalidate', async () => {
+  it('the trailing byte is unused zero fill, and flipping it does NOT invalidate', async () => {
     const falcon = await load();
     const kp = await falcon.keyPair();
     const m = new TextEncoder().encode('seal this');
