@@ -87,9 +87,11 @@ npm run build && npm run test:e2e
 
 - [crypto-lab-dilithium-seal](https://systemslibrarian.github.io/crypto-lab-dilithium-seal/) — ML-DSA (FIPS 204), the lattice signature standard Falcon is compared against.
 - [crypto-lab-sphincs-ledger](https://systemslibrarian.github.io/crypto-lab-sphincs-ledger/) — SLH-DSA (FIPS 205), the hash-based PQ signature alternative.
-- [crypto-lab-hawk](https://systemslibrarian.github.io/crypto-lab-hawk/) — HAWK, a lattice signature often framed as Falcon's conceptual successor.
+- [crypto-lab-hawk](https://systemslibrarian.github.io/crypto-lab-hawk/) — HAWK, a lattice signature once framed as Falcon's conceptual successor; [NIST lists it as withdrawn](https://csrc.nist.gov/projects/pqc-dig-sig/round-3-additional-signatures) after a key-recovery attack, and [its own submission team](https://hawk-sign.info/) dates the withdrawal 29 July 2026 and states that Hawk "is insecure and should not be used".
 - [crypto-lab-dilithium-reject](https://systemslibrarian.github.io/crypto-lab-dilithium-reject/) — rejection sampling and timing tradeoffs in ML-DSA.
 - [crypto-lab-multivariate](https://systemslibrarian.github.io/crypto-lab-multivariate/) — UOV, a non-lattice PQ signature family for contrast.
+
+**Standards reviewed 15 November 2026:** the HAWK cross-reference above was re-checked. NIST's round-3 additional-signatures page states that the submission team has withdrawn HAWK; the team's own site dates that 29 July 2026 and carries the banner "Hawk is insecure and should not be used." The attack does not transfer to Falcon, and nothing about Falcon's own status changed in this pass.
 
 ## References
 
