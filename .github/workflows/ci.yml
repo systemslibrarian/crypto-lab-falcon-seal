@@ -16,30 +16,7 @@ permissions:
 
 jobs:
   test-and-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
-
-      - run: npx playwright install --with-deps chromium
-      - run: npx playwright test
-
-      - uses: actions/upload-artifact@v7
-        if: failure()
-        with:
-          name: playwright-artifacts
-          path: |
-            test-results/
-            playwright-report/
-          if-no-files-found: ignore
+    uses: ./.github/workflows/gate.yml
 
   # Dependabot only. Depends on every gate job in this workflow, so a bump can
   # only merge itself once this lab's whole PR gate went green. Majors are

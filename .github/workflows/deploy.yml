@@ -15,35 +15,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The gate, called rather than copied.
+  gate:
+    uses: ./.github/workflows/gate.yml
+
   build:
+    needs: gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
-
       - run: npm install --no-audit --no-fund
-      - run: npm test
       - run: npm run build
-
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
-
-      - name: Accessibility gate (axe-core, WCAG A/AA)
-        run: npm run test:a11y
-
-      - name: Research note visibility and scope
-        run: npx playwright test e2e/research-update.spec.ts
-
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
   deploy:
-    needs: build
+    needs: [gate, build]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
