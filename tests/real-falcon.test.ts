@@ -73,7 +73,7 @@ describe('the real Falcon build against the published Falcon-1024 figures', () =
 
   /* The buffer is not Falcon's padded format, and this pins the two facts that
      prove it: the published padded length is 1,280 B, and what the wrapper hands
-     back is a 2-byte little-endian length prefix naming a SHORTER, variable
+     back is a 2-byte little-endian length prefix naming a variable
      compressed signature, with the rest zero fill. If the page ever goes back to
      calling 1,330 "the padded format", these fail. */
   it('what it emits is the variable-length compressed signature, not the 1,280-byte padded format', async () => {
@@ -88,13 +88,12 @@ describe('the real Falcon build against the published Falcon-1024 figures', () =
     for (let i = 0; i < 6; i += 1) {
       const sig = await falcon.signDetached(m, kp.privateKey);
       const declared = sig[0] | (sig[1] << 8); // little-endian length prefix
-      /* The prefix names the real signature; everything after it is zero fill. */
-      let trailingZeros = 0;
-      for (let j = sig.length - 1; j >= 0 && sig[j] === 0; j -= 1) trailingZeros += 1;
-      expect(declared + WRAPPER_LENGTH_PREFIX_BYTES + trailingZeros).toBe(sig.length);
-      /* Variable, and below BOTH the buffer size and the padded length. */
-      expect(declared).toBeLessThan(PQCLEAN_CRYPTO_BYTES);
-      expect(declared).toBeLessThan(SPEC_PADDED_BYTES);
+      /* The prefix delimits the signature; its own last byte may also be zero.
+         Compressed signatures may equal or exceed the padded length. Check the
+         buffer bound and zero fill, not a bound on the average signature size. */
+      expect(declared).toBeGreaterThan(0);
+      expect(declared).toBeLessThanOrEqual(PQCLEAN_CRYPTO_BYTES);
+      expect(sig.subarray(WRAPPER_LENGTH_PREFIX_BYTES + declared).every((b) => b === 0)).toBe(true);
       lengths.add(declared);
     }
     /* Six signatures over one message and one key did not all come out the same

@@ -20,3 +20,13 @@ test('key-expansion research keeps the target and experiment boundaries', async 
   }
   await expect(note.locator('a')).toHaveAttribute('href', 'https://eprint.iacr.org/2025/2159');
 });
+
+test('FALCON-PARE distinguishes profiling from the target trace', async ({ page }) => {
+  await page.goto('./#falcon-pare-research');
+  const note = page.locator('#falcon-pare-research');
+  await expect(note).toBeVisible();
+  for (const text of ['13 November 2026', 'preprint', 'controlled clone', '40 profiling traces at -O0', '120 at -O3', 'one target power trace', 'full valid coefficient range', 'rare but valid coefficients', 'not a mathematical break', 'does not reproduce']) {
+    await expect(note).toContainText(text);
+  }
+  await expect(note.locator('a')).toHaveAttribute('href', 'https://eprint.iacr.org/2026/2888');
+});
