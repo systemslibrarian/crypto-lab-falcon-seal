@@ -160,7 +160,7 @@ function attemptsHtml(result: TrapdoorSignResult, title: string): string {
   return `
     <div class="table-wrap" tabindex="0">
       <table>
-        <caption>${title} — every attempt's measured ‖s‖², bound β² = ${fmt(TOY_BOUND_SQ)}</caption>
+        <caption>${esc(title)} — every attempt's measured ‖s‖², bound β² = ${fmt(TOY_BOUND_SQ)}</caption>
         <thead><tr><th scope="col">Attempt</th><th scope="col">‖s‖² (measured)</th><th scope="col">Verdict</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>

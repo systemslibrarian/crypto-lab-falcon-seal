@@ -20,6 +20,8 @@ Panel 7 supplies the first of those two pieces, by dropping the dimension until 
 
 What the Layer A flow still teaches honestly: real NTRU key generation via a real negacyclic NTT, the hash-to-challenge step, the shape of a rejection loop, two independent verification checks that both genuinely catch tampering, and — via the forge button — what it looks like when a norm check is not tied to an equation. What **Layer A** cannot teach is unforgeability, and the page no longer claims otherwise; Panel 7 is where the lab teaches it, by enforcing the equation and the bound together and showing the same forgery fail. One further calibration note: the rejection bound this demo enforces (800 for Falcon-512) is a demo constant tuned to its σ = 1.2 sampler, not Falcon-512's ⌊β²⌋ = 34,034,726; both are now shown side by side wherever the bound appears.
 
+The pasted-JSON verifier checks consistency with the public key included in the same file. A passing illustrative result does not authenticate the author or prove possession of a private key. The WebAssembly panel runs real Falcon-1024 on the exact UTF-8 message in Panel 3, including an empty message.
+
 ## When to Use It
 
 - **Bandwidth-constrained certificate chains and handshakes** — Falcon's published signature sizes are much smaller than ML-DSA and SLH-DSA, so it fits when transmitted bytes are a hard limit.

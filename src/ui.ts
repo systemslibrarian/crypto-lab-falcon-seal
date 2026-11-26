@@ -1008,10 +1008,35 @@ function bindEvents(root: HTMLElement): void {
   const msgInput = root.querySelector<HTMLTextAreaElement>('#message-input');
   const sampleBtn = root.querySelector<HTMLButtonElement>('#sample-btn');
 
+  let keyRevision = 0;
+  let messageRevision = 0;
+  let pasteRevision = 0;
+  const clearOutput = (id: string) => {
+    const output = root.querySelector<HTMLElement>(id);
+    if (output) {
+      output.replaceChildren();
+      output.classList.remove('ok', 'bad', 'warn');
+    }
+  };
+  const clearSignature = () => {
+    state.signedMessage = '';
+    state.signResult = null;
+    state.verifyResult = null;
+    clearOutput('#sign-info');
+    clearOutput('#forge-info');
+    updateAttempts();
+    updateChallenge();
+    updateVerify();
+    updateLatticeViz();
+  };
+
   root.querySelectorAll<HTMLInputElement>('input[name="paramset"]').forEach((input) => {
     input.addEventListener('change', () => {
       const next = input.value as FalconParameterSetName;
       if (next === state.parameterSetName) return;
+      keyRevision++;
+      messageRevision++;
+      pasteRevision++;
       state.parameterSetName = next;
       state.keyPair = null;
       state.signResult = null;
@@ -1038,16 +1063,24 @@ function bindEvents(root: HTMLElement): void {
   });
 
   msgInput?.addEventListener('input', () => {
+    messageRevision++;
     state.message = msgInput.value;
+    clearSignature();
+    clearOutput('#real-falcon-info');
     updateVisceralSize();
   });
 
   keygenBtn?.addEventListener('click', async () => {
+    const revision = ++keyRevision;
+    state.keyPair = null;
+    clearSignature();
     keygenBtn.disabled = true;
     setStatus('key-info', `Generating ${state.parameterSetName} keypair (real NTRU inversion via NTT)…`);
     try {
       const t0 = performance.now();
-      state.keyPair = await generateFalconKeyPair(currentSet());
+      const pair = await generateFalconKeyPair(currentSet());
+      if (keyRevision !== revision) return;
+      state.keyPair = pair;
       const ms = (performance.now() - t0).toFixed(1);
       const regenNote =
         state.keyPair.privateKey.regenerationsForInvertibility > 0
@@ -1090,11 +1123,14 @@ function bindEvents(root: HTMLElement): void {
     }
     const signBtn = root.querySelector<HTMLButtonElement>('#sign-btn');
     if (signBtn) signBtn.disabled = true;
-    state.signedMessage = message;
+    const revision = messageRevision;
+    const key = state.keyPair;
     state.message = message;
     setStatus('sign-info', `Signing with illustrative ${state.parameterSetName} flow…`);
     try {
-      const result = await signFalconIllustrative(message, state.keyPair);
+      const result = await signFalconIllustrative(message, key);
+      if (revision !== messageRevision || key !== state.keyPair) return;
+      state.signedMessage = message;
       state.signResult = result;
       state.verifyResult = null;
       setStatus(
@@ -1117,7 +1153,10 @@ function bindEvents(root: HTMLElement): void {
       return;
     }
     const message = msgInput?.value ?? '';
-    state.verifyResult = await verifyFalconIllustrative(message, state.signResult.signature, state.keyPair.publicKey);
+    const signed = state.signResult;
+    const verdict = await verifyFalconIllustrative(message, signed.signature, state.keyPair.publicKey);
+    if (signed !== state.signResult) return;
+    state.verifyResult = verdict;
     updateVerify();
   });
 
@@ -1127,7 +1166,10 @@ function bindEvents(root: HTMLElement): void {
       return;
     }
     const tampered = `${state.signedMessage} [tampered]`;
-    state.verifyResult = await verifyFalconIllustrative(tampered, state.signResult.signature, state.keyPair.publicKey);
+    const signed = state.signResult;
+    const verdict = await verifyFalconIllustrative(tampered, signed.signature, state.keyPair.publicKey);
+    if (signed !== state.signResult) return;
+    state.verifyResult = verdict;
     updateVerify();
   });
 
@@ -1349,7 +1391,12 @@ function bindEvents(root: HTMLElement): void {
 
   // Paste-to-verify.
   const pasteInput = root.querySelector<HTMLTextAreaElement>('#paste-input');
+  pasteInput?.addEventListener('input', () => {
+    pasteRevision++;
+    clearOutput('#paste-info');
+  });
   root.querySelector<HTMLButtonElement>('#paste-verify-btn')?.addEventListener('click', async () => {
+    const revision = ++pasteRevision;
     const raw = pasteInput?.value.trim() ?? '';
     if (!raw) {
       setStatus('paste-info', 'Paste a signature JSON first (use “Copy as JSON” after signing).', 'warn');
@@ -1359,6 +1406,7 @@ function bindEvents(root: HTMLElement): void {
       const bundle = parseSignatureJson(raw);
       const v = await verifyFalconIllustrative(bundle.message, bundle.signature, bundle.publicKey);
       const fingerprint = await publicKeyFingerprint(bundle.publicKey);
+      if (revision !== pasteRevision) return;
       const host = document.getElementById('paste-info');
       if (host) {
         host.classList.remove('ok', 'warn', 'bad');
@@ -1366,10 +1414,11 @@ function bindEvents(root: HTMLElement): void {
         const preview = bundle.message.length > 80 ? `${bundle.message.slice(0, 80)}…` : bundle.message;
         host.innerHTML = renderVerifyBlock(
           v,
-          `Verified against the public key embedded in the JSON — signer key fingerprint <code class="mono">${fingerprint}</code> · message: “${escapeHtml(preview)}”. ${v.overall ? 'This message was signed by the holder of that key and has not been altered.' : 'Either the message, the vector s, or the key was altered after signing.'}`
+          `Illustrative checks against the public key embedded in the JSON — key fingerprint <code class="mono">${fingerprint}</code> · message: “${escapeHtml(preview)}”. ${v.overall ? 'Both classroom checks passed. They do not establish who created the bundle or prove possession of a private key.' : 'The bundle failed at least one classroom check.'}`
         );
       }
     } catch (err) {
+      if (revision !== pasteRevision) return;
       setStatus('paste-info', err instanceof Error ? err.message : 'Could not parse the signature JSON.', 'bad');
     }
   });
@@ -1377,10 +1426,13 @@ function bindEvents(root: HTMLElement): void {
   // Real Falcon (WASM).
   const realBtn = root.querySelector<HTMLButtonElement>('#real-falcon-btn');
   realBtn?.addEventListener('click', async () => {
+    const revision = messageRevision;
+    const message = state.message;
     realBtn.disabled = true;
     setStatus('real-falcon-info', 'Loading the Falcon-1024 WebAssembly module and generating a real keypair (this is the slow, real thing)…');
     try {
-      const run = await runRealFalcon(state.message || 'Falcon');
+      const run = await runRealFalcon(message);
+      if (revision !== messageRevision) return;
       const host = document.getElementById('real-falcon-info');
       if (host) {
         const healthy = run.verified && !run.tamperedVerified;
@@ -1390,7 +1442,7 @@ function bindEvents(root: HTMLElement): void {
         host.innerHTML = `
           <div class="table-wrap" role="group" tabindex="0" aria-label="Real Falcon-1024 measured run">
             <table>
-              <caption>Real Falcon-1024 (reference implementation, WASM) — measured on your machine just now</caption>
+              <caption>Real Falcon-1024 (reference implementation, WASM) — measured for your ${new TextEncoder().encode(message).length}-byte message</caption>
               <thead><tr><th>Step</th><th>Result</th><th>Time</th></tr></thead>
               <tbody>
                 <tr><th scope="row">Key generation</th><td>public key ${run.publicKeyBytes} B · private key ${run.privateKeyBytes} B</td><td>${run.keygenMs.toFixed(1)} ms</td></tr>
@@ -1409,6 +1461,7 @@ function bindEvents(root: HTMLElement): void {
         `;
       }
     } catch (err) {
+      if (revision !== messageRevision) return;
       setStatus(
         'real-falcon-info',
         `Could not run the WASM build (${err instanceof Error ? err.message : 'unknown error'}). This can happen offline or in browsers without WebAssembly support.`,
@@ -1468,7 +1521,7 @@ function bindEvents(root: HTMLElement): void {
       {
         target: '#panel-3',
         title: 'Tamper detection',
-        body: 'We just verified the same signature against a tampered message. The recomputed challenge changes, the digest no longer matches, and verification fails — authenticity and integrity in one primitive.',
+        body: 'We just verified the same signature against a tampered message. The recomputed challenge changes, the digest no longer matches, and the classroom check rejects the change. This illustrates detection of the edited message. Identifying a signer requires a signature system that uses a private key.',
         action: () => root.querySelector<HTMLButtonElement>('#tamper-btn')?.click()
       },
       {
